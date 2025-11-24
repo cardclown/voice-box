@@ -1,7 +1,0 @@
-/workspace/cloud-api/src/main/java/com/example/voicebox/cloud/ChatClient.java
-/workspace/cloud-api/src/main/java/com/example/voicebox/cloud/ChatRequest.java
-/workspace/cloud-api/src/main/java/com/example/voicebox/cloud/TtsClient.java
-/workspace/cloud-api/src/main/java/com/example/voicebox/cloud/EmotionAnalyzer.java
-/workspace/cloud-api/src/main/java/com/example/voicebox/cloud/AsrClient.java
-/workspace/cloud-api/src/main/java/com/example/voicebox/cloud/VoiceStyle.java
-/workspace/cloud-api/src/main/java/com/example/voicebox/cloud/ChatResponse.java
