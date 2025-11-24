@@ -1,0 +1,9 @@
+/workspace/hardware-api/src/main/java/com/example/voicebox/hardware/DisplayPort.java
+/workspace/hardware-api/src/main/java/com/example/voicebox/hardware/EmotionType.java
+/workspace/hardware-api/src/main/java/com/example/voicebox/hardware/DeviceState.java
+/workspace/hardware-api/src/main/java/com/example/voicebox/hardware/InputEventListener.java
+/workspace/hardware-api/src/main/java/com/example/voicebox/hardware/InputEventPort.java
+/workspace/hardware-api/src/main/java/com/example/voicebox/hardware/NetworkType.java
+/workspace/hardware-api/src/main/java/com/example/voicebox/hardware/AudioOutputPort.java
+/workspace/hardware-api/src/main/java/com/example/voicebox/hardware/AudioInputPort.java
+/workspace/hardware-api/src/main/java/com/example/voicebox/hardware/NetworkStatusPort.java

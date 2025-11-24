@@ -1,0 +1,4 @@
+com/example/voicebox/cloud/http/AliyunAsrClient.class
+com/example/voicebox/cloud/http/AliyunTtsClient.class
+com/example/voicebox/cloud/http/HttpChatClient.class
+com/example/voicebox/cloud/http/HttpCloudClients.class

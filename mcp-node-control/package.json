@@ -1,0 +1,16 @@
+{
+  "name": "mcp-node-computer-control",
+  "version": "0.1.0",
+  "description": "一个通过 Node.js 操作本机的 MCP 服务（执行命令、读写文件等）",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "zod": "^3.23.0"
+  }
+}
+
+

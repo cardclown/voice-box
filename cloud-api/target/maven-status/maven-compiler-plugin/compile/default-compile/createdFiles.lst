@@ -1,0 +1,7 @@
+com/example/voicebox/cloud/ChatClient.class
+com/example/voicebox/cloud/ChatResponse.class
+com/example/voicebox/cloud/EmotionAnalyzer.class
+com/example/voicebox/cloud/TtsClient.class
+com/example/voicebox/cloud/ChatRequest.class
+com/example/voicebox/cloud/VoiceStyle.class
+com/example/voicebox/cloud/AsrClient.class

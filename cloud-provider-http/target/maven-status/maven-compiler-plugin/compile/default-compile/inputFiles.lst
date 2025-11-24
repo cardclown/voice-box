@@ -1,0 +1,4 @@
+/workspace/cloud-provider-http/src/main/java/com/example/voicebox/cloud/http/AliyunAsrClient.java
+/workspace/cloud-provider-http/src/main/java/com/example/voicebox/cloud/http/HttpCloudClients.java
+/workspace/cloud-provider-http/src/main/java/com/example/voicebox/cloud/http/AliyunTtsClient.java
+/workspace/cloud-provider-http/src/main/java/com/example/voicebox/cloud/http/HttpChatClient.java

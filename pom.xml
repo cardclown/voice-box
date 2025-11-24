@@ -1,0 +1,32 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example.voicebox</groupId>
+    <artifactId>voice-box</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>voice-box</name>
+    <description>Multi-module project for a Java-based voice chat device</description>
+
+    <modules>
+        <module>hardware-api</module>
+        <module>cloud-api</module>
+        <module>core-domain</module>
+        <module>hardware-raspi</module>
+        <module>hardware-mock</module>
+        <module>cloud-provider-sample</module>
+        <module>cloud-provider-http</module>
+        <module>app-device</module>
+        <module>app-web</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+</project>

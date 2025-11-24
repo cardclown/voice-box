@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "node-computer-control": {
+      "command": "node",
+      "args": [
+        "/Users/jd/mydesk/cursorFiles/voice-box/mcp-node-control/server.mjs"
+      ]
+    }
+  }
+}
+
+

@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  java-maven:
+    build:
+      context: .
+      dockerfile: Dockerfile.java-maven
+    container_name: java-maven-3.6-jdk8
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - maven-repo:/root/.m2
+    stdin_open: true
+    tty: true
+    command: ["bash", "/workspace/dev-watch.sh"]
+    # 默认 bridge 网络即可访问外网，不做额外限制
+
+  mysql:
+    image: mysql:5.7
+    platform: linux/amd64
+    container_name: voice-box-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: voicebox_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  maven-repo:
+    driver: local
+  mysql-data:
+    driver: local
+
+
+
