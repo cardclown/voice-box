@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Stream Test</title>
+</head>
+<body>
+    <h1>测试流式响应</h1>
+    <button onclick="testStream()">发送消息</button>
+    <div id="output" style="white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; margin-top: 10px;"></div>
+    
+    <script>
+    async function testStream() {
+        const output = document.getElementById('output');
+        output.textContent = '正在连接...\n';
+        
+        try {
+            const response = await fetch('http://localhost:10088/api/chat/stream', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream'
+                },
+                body: JSON.stringify({
+                    text: '你好，请说一句话',
+                    model: 'doubao',
+                    deviceInfo: 'test'
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('HTTP error! status: ' + response.status);
+            }
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            
+            output.textContent += '已连接，等待数据...\n';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    output.textContent += '\n流结束\n';
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                output.textContent += '收到数据块: ' + buffer + '\n';
+                
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    output.textContent += '处理行: ' + line + '\n';
+                    
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6).trim();
+                        output.textContent += '数据内容: ' + data + '\n';
+                        
+                        if (data === '[DONE]') {
+                            output.textContent += '收到结束标记\n';
+                            return;
+                        }
+                        
+                        try {
+                            const parsed = JSON.parse(data);
+                            output.textContent += 'JSON解析成功: ' + JSON.stringify(parsed) + '\n';
+                        } catch (e) {
+                            output.textContent += 'JSON解析失败: ' + e.message + '\n';
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            output.textContent += '错误: ' + error.message + '\n';
+            console.error('Stream error:', error);
+        }
+    }
+    </script>
+</body>
+</html>

@@ -85,7 +85,7 @@ public class DeviceApiController {
         }
     }
 
-    @PostMapping("/chat/stream")
+    @PostMapping(value = "/chat/stream", produces = "text/event-stream")
     public SseEmitter streamChat(@RequestBody WebChatRequest request) {
         // Long timeout for AI generation
         SseEmitter emitter = new SseEmitter(180_000L); 

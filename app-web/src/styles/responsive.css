@@ -2,25 +2,37 @@
 
 /* Mobile First Approach */
 
-/* Base styles for mobile (< 768px) */
+/* ========== 断点定义 ========== */
+/* 
+  Mobile: < 768px
+  Tablet: 768px - 1024px
+  Desktop: > 1024px
+*/
+
+/* ========== 基础容器样式 ========== */
 .container {
   width: 100%;
-  padding: var(--spacing-md);
+  padding: var(--spacing-md, 1rem);
+  margin: 0 auto;
 }
 
 /* Tablet (768px - 1024px) */
 @media (min-width: 768px) {
   .container {
-    padding: var(--spacing-lg);
+    padding: var(--spacing-lg, 1.5rem);
+    max-width: 1024px;
   }
 }
 
 /* Desktop (> 1024px) */
 @media (min-width: 1024px) {
   .container {
-    padding: var(--spacing-xl);
+    padding: var(--spacing-xl, 2rem);
+    max-width: 1440px;
   }
 }
+
+/* ========== 显示/隐藏工具类 ========== */
 
 /* Hide on mobile */
 @media (max-width: 767px) {
@@ -54,15 +66,253 @@
   }
 }
 
-/* Responsive text sizes */
+/* Show only on tablet */
+.show-tablet {
+  display: none !important;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .show-tablet {
+    display: block !important;
+  }
+}
+
+/* Show only on desktop */
+.show-desktop {
+  display: none !important;
+}
+
+@media (min-width: 1024px) {
+  .show-desktop {
+    display: block !important;
+  }
+}
+
+/* ========== 响应式文本大小 ========== */
+/* 确保最小字体大小为 14px */
 @media (max-width: 767px) {
   html {
     font-size: 14px;
   }
+
+  body {
+    font-size: max(14px, 1rem);
+  }
+
+  /* 确保所有文本元素至少 14px */
+  p, span, div, a, button, input, textarea, select {
+    font-size: max(14px, 1em);
+  }
+
+  h1 { font-size: max(24px, 1.75rem); }
+  h2 { font-size: max(20px, 1.5rem); }
+  h3 { font-size: max(18px, 1.25rem); }
+  h4 { font-size: max(16px, 1.125rem); }
+  h5 { font-size: max(14px, 1rem); }
+  h6 { font-size: max(14px, 0.875rem); }
 }
 
 @media (min-width: 768px) {
   html {
     font-size: 16px;
+  }
+}
+
+/* ========== 响应式间距 ========== */
+.spacing-responsive {
+  padding: var(--spacing-sm, 0.5rem);
+}
+
+@media (min-width: 768px) {
+  .spacing-responsive {
+    padding: var(--spacing-md, 1rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .spacing-responsive {
+    padding: var(--spacing-lg, 1.5rem);
+  }
+}
+
+/* ========== Flexbox 响应式工具 ========== */
+.flex-mobile-column {
+  display: flex;
+}
+
+@media (max-width: 767px) {
+  .flex-mobile-column {
+    flex-direction: column;
+  }
+}
+
+.flex-tablet-column {
+  display: flex;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .flex-tablet-column {
+    flex-direction: column;
+  }
+}
+
+/* ========== 响应式宽度 ========== */
+.full-width-mobile {
+  width: auto;
+}
+
+@media (max-width: 767px) {
+  .full-width-mobile {
+    width: 100% !important;
+  }
+}
+
+/* ========== 视口过渡保护 ========== */
+/* 防止视口大小变化时内容丢失 */
+* {
+  box-sizing: border-box;
+}
+
+.viewport-safe {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ========== 触摸优化 ========== */
+@media (max-width: 767px) {
+  /* 增加触摸目标大小 */
+  button, a, input[type="button"], input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* 优化触摸滚动 */
+  .scrollable {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+  }
+}
+
+/* ========== 侧边栏响应式 ========== */
+.sidebar {
+  width: 280px;
+  transition: transform 0.3s ease;
+}
+
+@media (max-width: 767px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1000;
+    transform: translateX(-100%);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* 侧边栏遮罩层 */
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .sidebar-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sidebar {
+    width: 240px;
+  }
+}
+
+/* ========== 内容区域响应式 ========== */
+.content-area {
+  flex: 1;
+  min-width: 0;
+  padding: var(--spacing-md, 1rem);
+}
+
+@media (max-width: 767px) {
+  .content-area {
+    padding: var(--spacing-sm, 0.5rem);
+    /* 为移动端底部导航预留空间 */
+    padding-bottom: calc(60px + var(--spacing-sm, 0.5rem));
+  }
+}
+
+@media (min-width: 1024px) {
+  .content-area {
+    padding: var(--spacing-lg, 1.5rem);
+  }
+}
+
+/* ========== 平滑过渡 ========== */
+.smooth-transition {
+  transition: all 0.3s ease;
+}
+
+/* ========== 响应式网格 ========== */
+.grid-responsive {
+  display: grid;
+  gap: var(--spacing-md, 1rem);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .grid-responsive {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ========== 可访问性 ========== */
+/* 跳过导航链接（键盘导航） */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent-color, #10a37f);
+  color: white;
+  padding: 8px;
+  text-decoration: none;
+  z-index: 100;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ========== 打印样式 ========== */
+@media print {
+  .hide-print {
+    display: none !important;
+  }
+
+  .sidebar, .module-nav, .mobile-nav {
+    display: none !important;
+  }
+
+  body {
+    font-size: 12pt;
   }
 }

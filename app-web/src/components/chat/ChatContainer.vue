@@ -62,7 +62,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import SessionSidebar from './SessionSidebar.vue'
 import MessageList from './MessageList.vue'
 import InputArea from './InputArea.vue'
@@ -162,6 +162,9 @@ const createNewSession = async () => {
   }
 }
 
+// 流式响应控制器
+let streamController = null
+
 const sendChat = async () => {
   if (!chatInput.value.trim() && !tempAttachment.value) return
   
@@ -187,6 +190,81 @@ const sendChat = async () => {
   loading.value = true
   messageListRef.value?.scrollToBottom()
 
+  // 创建 AI 消息占位符（流式响应时不显示 loading indicator）
+  const aiMessageIndex = messages.value.length
+  messages.value.push({ 
+    sender: 'ai', 
+    text: '',
+    isStreaming: true 
+  })
+  
+  // 立即隐藏 loading，因为我们已经有了流式消息占位符
+  loading.value = false
+
+  try {
+    // 尝试使用流式响应
+    const { createStreamingChat, isStreamingSupported } = await import('../../services/streamService.js')
+    
+    if (isStreamingSupported()) {
+      // 使用流式响应
+      streamController = createStreamingChat(
+        {
+          text,
+          model: selectedModel.value,
+          sessionId: currentSessionId.value,
+          deviceInfo: DEVICE_INFO
+        },
+        // onToken: 接收到新 token
+        (token, data) => {
+          if (data.sessionId && !currentSessionId.value) {
+            currentSessionId.value = data.sessionId
+          }
+          
+          if (token) {
+            // 直接修改文本内容，Vue 3 的响应式系统会自动追踪
+            messages.value[aiMessageIndex].text += token
+            
+            // 使用 nextTick 确保 DOM 更新后滚动
+            nextTick(() => {
+              messageListRef.value?.scrollToBottom()
+            })
+          }
+        },
+        // onComplete: 流式响应完成
+        () => {
+          messages.value[aiMessageIndex].isStreaming = false
+          loading.value = false
+          streamController = null
+          fetchSessions()
+          messageListRef.value?.scrollToBottom()
+        },
+        // onError: 发生错误
+        (error) => {
+          console.error('Streaming error:', error)
+          messages.value[aiMessageIndex].isStreaming = false
+          
+          if (!messages.value[aiMessageIndex].text) {
+            messages.value[aiMessageIndex].text = '流式响应失败，正在尝试普通请求...'
+          }
+          
+          // 回退到普通请求
+          fallbackToNormalChat(text, attachment, aiMessageIndex)
+        }
+      )
+    } else {
+      // 浏览器不支持流式响应，使用普通请求
+      await fallbackToNormalChat(text, attachment, aiMessageIndex)
+    }
+  } catch (err) {
+    console.error('Chat error:', err)
+    messages.value[aiMessageIndex].isStreaming = false
+    messages.value[aiMessageIndex].text = '调用后端失败，请稍后重试。'
+    loading.value = false
+  }
+}
+
+// 回退到普通聊天请求
+const fallbackToNormalChat = async (text, attachment, messageIndex) => {
   try {
     const res = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
@@ -206,14 +284,26 @@ const sendChat = async () => {
     if (!currentSessionId.value && data.sessionId) {
       currentSessionId.value = data.sessionId
     }
-    messages.value.push({ sender: 'ai', text: data.text })
+    
+    messages.value[messageIndex].text = data.text
+    messages.value[messageIndex].isStreaming = false
     fetchSessions()
   } catch (err) {
-    console.error(err)
-    messages.value.push({ sender: 'ai', text: '调用后端失败，请稍后重试。' })
+    console.error('Fallback chat error:', err)
+    messages.value[messageIndex].text = '调用后端失败，请稍后重试。'
+    messages.value[messageIndex].isStreaming = false
   } finally {
     loading.value = false
     messageListRef.value?.scrollToBottom()
+  }
+}
+
+// 停止流式响应
+const stopStreaming = () => {
+  if (streamController) {
+    streamController.abort()
+    streamController = null
+    loading.value = false
   }
 }
 
@@ -240,22 +330,32 @@ onMounted(() => {
   flex: 1;
   display: flex;
   position: relative;
+  min-width: 0; /* 防止 flex 溢出 */
+  overflow: hidden;
 }
 
 .session-overlay {
   display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 99;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
-@media (max-width: 768px) {
+.session-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 767px) {
   .session-overlay {
     display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 99;
   }
 }
 
@@ -264,64 +364,171 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   background: var(--bg-color, #fff);
+  min-width: 0; /* 防止 flex 溢出 */
+  transition: all 0.3s ease;
 }
 
 .chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
+  padding: var(--spacing-md, 1rem) var(--spacing-lg, 1.5rem);
   border-bottom: 1px solid var(--border-color, #e5e7eb);
+  flex-shrink: 0;
+  min-height: 60px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--spacing-md, 1rem);
+  flex: 1;
+  min-width: 0; /* 允许文本截断 */
+}
+
+.header-left h2 {
+  margin: 0;
+  font-size: max(16px, 1.125rem); /* 确保最小字体大小 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .show-sessions-btn {
   display: none;
   background: transparent;
   border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 8px;
-  padding: 0.5rem;
+  border-radius: var(--radius-md, 8px);
+  padding: var(--spacing-sm, 0.5rem);
   cursor: pointer;
   color: var(--text-primary, #111827);
+  transition: all 0.2s ease;
+  min-height: 44px; /* 触摸目标大小 */
+  font-size: max(14px, 0.875rem);
 }
 
-@media (max-width: 768px) {
+.show-sessions-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.show-sessions-btn:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 767px) {
   .show-sessions-btn {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--spacing-xs, 0.25rem);
+  }
+
+  .chat-header {
+    padding: var(--spacing-sm, 0.5rem) var(--spacing-md, 1rem);
+    min-height: 56px;
+  }
+
+  .header-left {
+    gap: var(--spacing-sm, 0.5rem);
+  }
+
+  .header-left h2 {
+    font-size: max(14px, 1rem);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .chat-header {
+    padding: var(--spacing-md, 1rem);
   }
 }
 
 .current-model-chip {
-  font-size: 0.75rem;
+  font-size: max(12px, 0.75rem); /* 确保最小字体大小 */
   color: var(--text-secondary, #6b7280);
   margin-top: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+  .current-model-chip {
+    display: none; /* 移动端隐藏以节省空间 */
+  }
 }
 
 .model-selector-container {
   position: relative;
+  flex-shrink: 0;
 }
 
 .model-selector {
-  padding: 0.5rem 2rem 0.5rem 1rem;
+  padding: var(--spacing-sm, 0.5rem) 2rem var(--spacing-sm, 0.5rem) var(--spacing-md, 1rem);
   border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 8px;
+  border-radius: var(--radius-md, 8px);
   background: var(--bg-color, #fff);
   cursor: pointer;
   appearance: none;
+  font-size: max(14px, 0.875rem);
+  color: var(--text-primary, #111827);
+  transition: all 0.2s ease;
+  min-height: 44px; /* 触摸目标大小 */
+}
+
+.model-selector:hover {
+  border-color: var(--accent-color, #10a37f);
+}
+
+.model-selector:focus {
+  outline: 2px solid var(--accent-color, #10a37f);
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  .model-selector {
+    padding: var(--spacing-xs, 0.25rem) 1.5rem var(--spacing-xs, 0.25rem) var(--spacing-sm, 0.5rem);
+    font-size: max(14px, 0.8rem);
+    min-height: 40px;
+  }
 }
 
 .selector-icon {
   position: absolute;
-  right: 0.5rem;
+  right: var(--spacing-sm, 0.5rem);
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
+  color: var(--text-secondary, #6b7280);
+}
+
+/* 平板设备优化 */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .chat-header {
+    padding: var(--spacing-md, 1rem);
+  }
+
+  .header-left h2 {
+    font-size: max(15px, 1.0625rem);
+  }
+}
+
+/* 大屏幕优化 */
+@media (min-width: 1440px) {
+  .chat-header {
+    padding: var(--spacing-lg, 1.5rem) var(--spacing-xl, 2rem);
+  }
+}
+
+/* 确保内容不会被视口变化影响 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .chat-header {
+    min-height: 48px;
+    padding: var(--spacing-xs, 0.25rem) var(--spacing-md, 1rem);
+  }
+
+  .show-sessions-btn {
+    min-height: 36px;
+    padding: var(--spacing-xs, 0.25rem);
+  }
 }
 </style>

@@ -222,13 +222,16 @@ public class HttpChatClient implements ChatClient {
             if (choices.isArray() && choices.size() > 0) {
                 JsonNode first = choices.get(0);
                 JsonNode delta = first.path("delta");
+                
+                // 优先检查 content 字段
                 JsonNode content = delta.path("content");
-                if (!content.isMissingNode()) {
+                if (!content.isMissingNode() && !content.asText().isEmpty()) {
                     return content.asText();
                 }
-                // DeepSeek sometimes puts reasoning in "reasoning_content"
+                
+                // 如果 content 为空或不存在，检查 reasoning_content（DeepSeek/豆包）
                 JsonNode reasoning = delta.path("reasoning_content");
-                if (!reasoning.isMissingNode()) {
+                if (!reasoning.isMissingNode() && !reasoning.asText().isEmpty()) {
                     return reasoning.asText();
                 }
             }

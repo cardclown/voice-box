@@ -135,6 +135,26 @@ public class UserTagRepository {
         return tags;
     }
 
+    public UserTag findByUserIdAndCategoryAndTagName(Long userId, String category, String tagName) {
+        String sql = "SELECT * FROM user_tags WHERE user_id = ? AND category = ? AND tag_name = ? LIMIT 1";
+        
+        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setLong(1, userId);
+            stmt.setString(2, category);
+            stmt.setString(3, tagName);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapUserTag(rs);
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find tag by user, category and name", e);
+        }
+        return null;
+    }
+
     public UserTag update(UserTag tag) {
         String sql = "UPDATE user_tags SET category = ?, tag_name = ?, confidence = ?, source = ? WHERE id = ?";
         

@@ -1,65 +1,191 @@
 /* CSS Variables for Theming */
 
 :root {
-  /* Light Theme Colors */
+  /* ========== Light Theme Colors ========== */
+  
+  /* Background Colors */
   --bg-color: #f9fafb;
   --bg-secondary: #ffffff;
+  --bg-tertiary: #f3f4f6;
+  
+  /* Text Colors */
   --text-primary: #111827;
   --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  
+  /* Accent Colors */
   --accent-color: #10a37f;
   --accent-hover: #0d8a6a;
-  --user-bubble: #f3f4f6;
-  --ai-bubble: transparent;
+  --accent-light: #d1fae5;
+  
+  /* Message Bubble Colors */
+  --user-bubble: #6366f1;
+  --user-bubble-text: #ffffff;
+  --ai-bubble-bg: #f9fafb;
+  --ai-bubble-text: #111827;
+  
+  /* Navigation Colors */
+  --nav-bg: #202123;
+  --nav-text: #ffffff;
+  --nav-hover: rgba(255, 255, 255, 0.1);
+  
+  /* Border & Divider Colors */
   --border-color: #e5e7eb;
+  --divider-color: #e5e7eb;
+  
+  /* Hover & Focus States */
+  --hover-bg: rgba(0, 0, 0, 0.05);
+  --focus-ring: #10a37f;
+  
+  /* Status Colors */
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --info-color: #3b82f6;
+  
+  /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   
-  /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
+  /* ========== Spacing ========== */
+  --spacing-xs: 0.25rem;    /* 4px */
+  --spacing-sm: 0.5rem;     /* 8px */
+  --spacing-md: 1rem;       /* 16px */
+  --spacing-lg: 1.5rem;     /* 24px */
+  --spacing-xl: 2rem;       /* 32px */
+  --spacing-2xl: 3rem;      /* 48px */
   
-  /* Border Radius */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  /* ========== Border Radius ========== */
+  --radius-sm: 0.375rem;    /* 6px */
+  --radius-md: 0.5rem;      /* 8px */
+  --radius-lg: 0.75rem;     /* 12px */
+  --radius-xl: 1rem;        /* 16px */
+  --radius-2xl: 1.5rem;     /* 24px */
   --radius-full: 9999px;
   
-  /* Typography */
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-base: 1rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.25rem;
-  --font-size-2xl: 1.5rem;
+  /* ========== Typography ========== */
+  --font-size-xs: 0.75rem;      /* 12px */
+  --font-size-sm: 0.875rem;     /* 14px */
+  --font-size-base: 1rem;       /* 16px */
+  --font-size-lg: 1.125rem;     /* 18px */
+  --font-size-xl: 1.25rem;      /* 20px */
+  --font-size-2xl: 1.5rem;      /* 24px */
+  --font-size-3xl: 1.875rem;    /* 30px */
   
-  /* Transitions */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* ========== Transitions ========== */
   --transition-fast: 150ms;
   --transition-base: 200ms;
   --transition-slow: 300ms;
+  --transition-slower: 500ms;
+  
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* ========== Z-Index Layers ========== */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
 }
 
-/* Dark Theme */
+/* ========== Dark Theme ========== */
 [data-theme="dark"] {
+  /* Background Colors */
   --bg-color: #1a1a1a;
   --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3a3a3a;
+  
+  /* Text Colors */
   --text-primary: #e5e5e5;
   --text-secondary: #a0a0a0;
+  --text-tertiary: #737373;
+  
+  /* Accent Colors */
   --accent-color: #10a37f;
   --accent-hover: #0d8a6a;
-  --user-bubble: #2d2d2d;
-  --ai-bubble: #1a1a1a;
+  --accent-light: #1a4d3e;
+  
+  /* Message Bubble Colors */
+  --user-bubble: #4f46e5;
+  --user-bubble-text: #ffffff;
+  --ai-bubble-bg: #2d2d2d;
+  --ai-bubble-text: #e5e5e5;
+  
+  /* Navigation Colors */
+  --nav-bg: #0d0d0d;
+  --nav-text: #e5e5e5;
+  --nav-hover: rgba(255, 255, 255, 0.1);
+  
+  /* Border & Divider Colors */
   --border-color: #404040;
+  --divider-color: #404040;
+  
+  /* Hover & Focus States */
+  --hover-bg: rgba(255, 255, 255, 0.05);
+  --focus-ring: #10a37f;
+  
+  /* Status Colors */
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --error-color: #ef4444;
+  --info-color: #3b82f6;
+  
+  /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
 }
 
-/* Responsive Breakpoints */
+/* ========== Theme Transition ========== */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: var(--transition-base);
+  transition-timing-function: var(--ease-in-out);
+}
+
+/* Disable transitions for elements that shouldn't animate */
+*:focus,
+*:active,
+input,
+textarea,
+select {
+  transition-property: none;
+}
+
+/* Re-enable specific transitions */
+button,
+a,
+.theme-toggle {
+  transition-property: background-color, border-color, color, transform, box-shadow;
+}
+
+/* ========== Responsive Breakpoints ========== */
 /* Mobile: < 768px */
 /* Tablet: 768px - 1024px */
 /* Desktop: > 1024px */
+/* Large Desktop: > 1440px */
+
+/* ========== Print Styles ========== */
+@media print {
+  :root {
+    --bg-color: #ffffff;
+    --text-primary: #000000;
+    --border-color: #cccccc;
+  }
+}
