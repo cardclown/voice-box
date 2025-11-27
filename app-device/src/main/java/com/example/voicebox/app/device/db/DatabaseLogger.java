@@ -8,9 +8,9 @@ import java.sql.Timestamp;
 
 public class DatabaseLogger {
 
-    private static final String DB_URL = "jdbc:mysql://voice-box-mysql:3306/voicebox_db?useSSL=false&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf-8";
-    private static final String USER = "root";
-    private static final String PASS = "root";
+    private static final String DB_URL = DatabaseConfig.jdbcUrl();
+    private static final String USER = DatabaseConfig.user();
+    private static final String PASS = DatabaseConfig.password();
 
     private static DatabaseLogger instance;
 
@@ -26,7 +26,7 @@ public class DatabaseLogger {
     }
 
     private void initializeTable() {
-        System.out.println("[DatabaseLogger] Initializing database table...");
+        System.out.println("[DatabaseLogger] Initializing database table (url=" + DB_URL + ")...");
         // 简单的重试逻辑，等待数据库就绪
         for (int i = 0; i < 10; i++) {
             try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS);

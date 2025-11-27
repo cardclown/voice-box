@@ -28,6 +28,14 @@ public class OnlineConversationEngine implements ConversationEngine {
         this.emotionAnalyzer = emotionAnalyzer;
     }
 
+    public ChatClient getChatClient() {
+        return chatClient;
+    }
+
+    public TtsClient getTtsClient() {
+        return ttsClient;
+    }
+
     @Override
     public ConversationResult handleUserUtterance(byte[] audioPcm, DeviceContext context) {
         String text = asrClient.recognize(audioPcm);

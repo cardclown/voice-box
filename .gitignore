@@ -25,3 +25,14 @@ npm-debug.log
 yarn-error.log
 .env
 
+# 上传文件目录
+voice-box-uploads/
+
+# 日志文件
+*.log
+backend.log
+frontend.log
+
+# 排除可能包含敏感信息的历史文件
+.specstory/history/*github*.md
+

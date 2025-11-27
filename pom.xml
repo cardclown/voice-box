@@ -20,7 +20,6 @@
         <module>cloud-provider-sample</module>
         <module>cloud-provider-http</module>
         <module>app-device</module>
-        <module>app-web</module>
     </modules>
 
     <properties>

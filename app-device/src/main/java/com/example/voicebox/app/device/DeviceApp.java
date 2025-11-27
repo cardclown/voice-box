@@ -7,16 +7,27 @@ import com.example.voicebox.core.*;
 import com.example.voicebox.hardware.InputEventListener;
 import com.example.voicebox.hardware.mock.MockHardware;
 import com.example.voicebox.app.device.db.DatabaseLogger;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+@SpringBootApplication(scanBasePackages = "com.example.voicebox")
 public class DeviceApp {
+    
+    // Global Engine instances to be shared with Controllers
+    public static OnlineConversationEngine GLOBAL_ONLINE_ENGINE;
 
     public static void main(String[] args) {
         // 1. 加载本地配置文件 (config.properties)
         ConfigLoader.loadProperties();
         
         // 2. 初始化数据库 (建表等)
-        DatabaseLogger.getInstance();
+        // DatabaseLogger.getInstance();
 
+        // 3. Initialize Engines & Hardware
         // In real device, you would wire concrete Raspberry Pi implementations here.
         MockHardware hardware = new MockHardware();
 
@@ -43,8 +54,11 @@ public class DeviceApp {
                 DummyCloudClients.chatClient(),
                 DummyCloudClients.ttsClient(),
                 DummyCloudClients.emotionAnalyzer()
-        );
+            );
         }
+        
+        // Expose to static context for Controller use (Simple approach for now)
+        GLOBAL_ONLINE_ENGINE = onlineEngine;
 
         OfflineConversationEngine offlineEngine = new OfflineConversationEngine();
 
@@ -70,7 +84,30 @@ public class DeviceApp {
             }
         });
 
-        // For now, simulate a single wake button press.
-        hardware.simulateWakeButtonPress();
+        // 4. Start Spring Boot Web Server (for Vue frontend API)
+        // Note: This blocks the main thread, so hardware loop runs in background or via listeners
+        // SpringApplication.run(DeviceApp.class, args); 
+        
+        // Workaround for "DispatcherServlet not found" (405/404 errors):
+        // When running via 'mvn exec:java', Spring Boot might not initialize the Servlet container correctly 
+        // if main class is just 'exec'. Better to let Spring handle the lifecycle.
+        
+        SpringApplication app = new SpringApplication(DeviceApp.class);
+        app.run(args);
+        
+        // Trigger initial simulation after startup (optional, might need valid context)
+        // hardware.simulateWakeButtonPress(); 
+    }
+    
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/**")
+                        .allowedOrigins("http://localhost:5173") // Vue default dev port
+                        .allowedMethods("*");
+            }
+        };
     }
 }
