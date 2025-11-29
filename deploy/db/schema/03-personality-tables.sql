@@ -1,37 +1,11 @@
 -- ============================================
--- VoiceBox 数据库初始化脚本（完整版）
--- 包含所有表结构的完整定义
--- 
--- 注意：推荐使用 deploy/db/init-database.sh 脚本
---      该脚本提供更好的错误处理和验证
--- 
--- 手动执行：
---   mysql -u root -p < deploy/init-database.sql
+-- VoiceBox 个性化分析表
+-- V2.0 功能：用户画像、对话特征、标签和反馈
 -- ============================================
-
--- 创建数据库
-CREATE DATABASE IF NOT EXISTS voicebox_db 
-    CHARACTER SET utf8mb4 
-    COLLATE utf8mb4_unicode_ci;
 
 USE voicebox_db;
 
--- 1. users 表 - 用户基本信息
-CREATE TABLE IF NOT EXISTS users (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE,
-    password_hash VARCHAR(255),
-    avatar_url VARCHAR(500),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    last_active_at TIMESTAMP NULL DEFAULT NULL,
-    preferences TEXT,
-    INDEX idx_username (username),
-    INDEX idx_email (email)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户基本信息表';
-
--- 2. user_profiles 表 - 用户画像（大五人格 + 偏好）
+-- 1. 用户画像表（大五人格 + 偏好）
 CREATE TABLE IF NOT EXISTS user_profiles (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -58,7 +32,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     -- 时间戳
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    last_analyzed_at TIMESTAMP NULL COMMENT '最后分析时间',
+    last_analyzed_at TIMESTAMP NULL DEFAULT NULL COMMENT '最后分析时间',
     
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_user_id (user_id),
@@ -66,7 +40,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     INDEX idx_last_analyzed (last_analyzed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户画像表';
 
--- 3. conversation_features 表 - 对话特征提取
+-- 2. 对话特征提取表
 CREATE TABLE IF NOT EXISTS conversation_features (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -81,10 +55,10 @@ CREATE TABLE IF NOT EXISTS conversation_features (
     vocabulary_richness DECIMAL(5,4) COMMENT '词汇丰富度',
     
     -- 语义特征
-    topics TEXT COMMENT '主题列表',
+    topics TEXT COMMENT '主题列表（JSON格式）',
     sentiment_score DECIMAL(5,4) COMMENT '情感分数 -1到1',
     intent VARCHAR(50) COMMENT '意图',
-    keywords TEXT COMMENT '关键词',
+    keywords TEXT COMMENT '关键词（JSON格式）',
     
     -- 对话模式
     question_count INT DEFAULT 0 COMMENT '问号数量',
@@ -101,7 +75,7 @@ CREATE TABLE IF NOT EXISTS conversation_features (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='对话特征表';
 
--- 4. user_tags 表 - 用户标签
+-- 3. 用户标签表
 CREATE TABLE IF NOT EXISTS user_tags (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -119,7 +93,7 @@ CREATE TABLE IF NOT EXISTS user_tags (
     INDEX idx_confidence (confidence)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户标签表';
 
--- 5. user_feedback 表 - 用户反馈
+-- 4. 用户反馈表
 CREATE TABLE IF NOT EXISTS user_feedback (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -136,51 +110,6 @@ CREATE TABLE IF NOT EXISTS user_feedback (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户反馈表';
 
--- 6. interactions 表 - 用户交互记录
-CREATE TABLE IF NOT EXISTS interactions (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    session_id BIGINT,
-    interaction_type VARCHAR(50) COMMENT 'message/click/scroll/voice',
-    interaction_data TEXT,
-    device_info TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_user_id (user_id),
-    INDEX idx_session_id (session_id),
-    INDEX idx_interaction_type (interaction_type),
-    INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户交互记录表';
-
--- 7. devices 表 - 设备管理
-CREATE TABLE IF NOT EXISTS devices (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    device_type VARCHAR(50) COMMENT 'web/mobile/raspberry_pi',
-    device_name VARCHAR(100),
-    api_key VARCHAR(255) UNIQUE,
-    last_sync_at TIMESTAMP NULL DEFAULT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    device_metadata TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_user_id (user_id),
-    INDEX idx_api_key (api_key),
-    INDEX idx_device_type (device_type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备管理表';
-
--- 插入默认用户（如果不存在）
-INSERT IGNORE INTO users (id, username, email, created_at) 
-VALUES (1, 'default_user', 'default@voicebox.local', NOW());
-
 -- 为默认用户创建初始画像
 INSERT IGNORE INTO user_profiles (user_id, created_at) 
 VALUES (1, NOW());
-
--- 显示创建的表
-SHOW TABLES;
-
--- 显示 user_profiles 表结构
-DESCRIBE user_profiles;
