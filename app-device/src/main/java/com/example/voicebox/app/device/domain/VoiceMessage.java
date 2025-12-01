@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 /**
  * 语音消息实体
  */
-@Data
 @Entity
 @Table(name = "voice_messages")
 public class VoiceMessage {
@@ -59,4 +58,50 @@ public class VoiceMessage {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    // Manual getters and setters (Lombok not working)
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    
+    public Long getSessionId() { return sessionId; }
+    public void setSessionId(Long sessionId) { this.sessionId = sessionId; }
+    
+    public Long getMessageId() { return messageId; }
+    public void setMessageId(Long messageId) { this.messageId = messageId; }
+    
+    public String getFileId() { return fileId; }
+    public void setFileId(String fileId) { this.fileId = fileId; }
+    
+    public String getFilePath() { return filePath; }
+    public void setFilePath(String filePath) { this.filePath = filePath; }
+    
+    public Long getFileSize() { return fileSize; }
+    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+    
+    public Integer getDuration() { return duration; }
+    public void setDuration(Integer duration) { this.duration = duration; }
+    
+    public String getFormat() { return format; }
+    public void setFormat(String format) { this.format = format; }
+    
+    public Integer getSampleRate() { return sampleRate; }
+    public void setSampleRate(Integer sampleRate) { this.sampleRate = sampleRate; }
+    
+    public String getRecognizedText() { return recognizedText; }
+    public void setRecognizedText(String recognizedText) { this.recognizedText = recognizedText; }
+    
+    public BigDecimal getConfidence() { return confidence; }
+    public void setConfidence(BigDecimal confidence) { this.confidence = confidence; }
+    
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
+    
+    public Boolean getIsInput() { return isInput; }
+    public void setIsInput(Boolean isInput) { this.isInput = isInput; }
+    
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

@@ -39,7 +39,17 @@ public class DeviceApiController {
     // Cache for dynamic clients
     private final Map<String, ChatClient> clientCache = new ConcurrentHashMap<>();
     private final ChatSessionRepository chatSessions;
-    private final ExecutorService executor = Executors.newCachedThreadPool();
+    
+    // 优化的线程池配置
+    private final ExecutorService executor = new java.util.concurrent.ThreadPoolExecutor(
+        10,  // 核心线程数
+        50,  // 最大线程数
+        60L, // 空闲线程存活时间
+        java.util.concurrent.TimeUnit.SECONDS,
+        new java.util.concurrent.LinkedBlockingQueue<>(100),  // 任务队列容量
+        new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy()  // 拒绝策略：调用者运行
+    );
+    
     private final ObjectMapper mapper = new ObjectMapper();
 
     public DeviceApiController(ChatSessionRepository chatSessions) {

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流式响应测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        #output {
+            border: 1px solid #ccc;
+            padding: 15px;
+            min-height: 200px;
+            background: #f5f5f5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>VoiceBox 流式响应测试</h1>
+    
+    <div class="status">
+        <strong>状态：</strong><span id="status">就绪</span>
+    </div>
+    
+    <div>
+        <input type="text" id="message" placeholder="输入消息" style="width: 300px; padding: 8px;" value="讲个笑话">
+        <button onclick="testStream()">测试流式响应</button>
+        <button onclick="clearOutput()">清空</button>
+    </div>
+    
+    <h3>响应内容：</h3>
+    <div id="output"></div>
+
+    <script>
+        const API_BASE = 'http://129.211.180.183/api';
+        const outputDiv = document.getElementById('output');
+        const statusSpan = document.getElementById('status');
+
+        function setStatus(text) {
+            statusSpan.textContent = text;
+        }
+
+        function clearOutput() {
+            outputDiv.textContent = '';
+        }
+
+        async function testStream() {
+            const message = document.getElementById('message').value;
+            if (!message.trim()) {
+                alert('请输入消息');
+                return;
+            }
+
+            clearOutput();
+            setStatus('正在连接...');
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/stream`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream'
+                    },
+                    body: JSON.stringify({
+                        text: message,
+                        model: 'doubao',
+                        userId: 1
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                setStatus('正在接收流式响应...');
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (done) {
+                        setStatus('完成！');
+                        break;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (!line) continue;
+
+                        if (line.startsWith('event:')) {
+                            console.log('Event:', line);
+                            continue;
+                        }
+
+                        if (line.startsWith('data:')) {
+                            const data = line.slice(5).trim();
+
+                            if (data === '[DONE]') {
+                                setStatus('完成！');
+                                return;
+                            }
+
+                            try {
+                                const parsed = JSON.parse(data);
+                                if (parsed.text) {
+                                    outputDiv.textContent += parsed.text;
+                                    // 自动滚动到底部
+                                    outputDiv.scrollTop = outputDiv.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.warn('Failed to parse:', data, e);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                setStatus('错误：' + error.message);
+                console.error('Stream error:', error);
+            }
+        }
+
+        // 支持回车发送
+        document.getElementById('message').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                testStream();
+            }
+        });
+    </script>
+</body>
+</html>

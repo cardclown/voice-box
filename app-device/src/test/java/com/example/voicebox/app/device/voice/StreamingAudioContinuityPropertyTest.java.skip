@@ -1,0 +1,169 @@
+package com.example.voicebox.app.device.voice;
+
+import com.example.voicebox.app.device.service.voice.TextSegmentationService;
+import com.pholser.junit.quickcheck.Property;
+import com.pholser.junit.quickcheck.runner.JUnitQuickcheck;
+import org.junit.runner.RunWith;
+
+import java.util.List;
+
+import static org.junit.Assert.*;
+
+/**
+ * 属性测试：流式音频连续性
+ * 
+ * Feature: voice-interaction, Property 15: 流式音频连续性
+ * Validates: Requirements 7.6
+ * 
+ * 属性：对于任何文本，分段后的所有段落连接起来应该等于原始文本（忽略空格）
+ */
+@RunWith(JUnitQuickcheck.class)
+public class StreamingAudioContinuityPropertyTest {
+    
+    private final TextSegmentationService segmentationService = new TextSegmentationService();
+    
+    /**
+     * 属性：分段后重新组合应该保持文本完整性
+     */
+    @Property(trials = 100)
+    public void segmentedTextShouldPreserveContent(String text) {
+        // 跳过空文本
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
+        
+        // 分段
+        List<String> segments = segmentationService.segmentText(text);
+        
+        // 重新组合
+        String reconstructed = String.join("", segments);
+        
+        // 移除空格进行比较（因为分段可能会调整空格）
+        String originalNormalized = text.trim().replaceAll("\\s+", "");
+        String reconstructedNormalized = reconstructed.replaceAll("\\s+", "");
+        
+        // 验证内容完整性
+        assertEquals("分段后重新组合应该保持文本内容", 
+                    originalNormalized, reconstructedNormalized);
+    }
+    
+    /**
+     * 属性：每个段落都应该非空
+     */
+    @Property(trials = 100)
+    public void allSegmentsShouldBeNonEmpty(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
+        
+        List<String> segments = segmentationService.segmentText(text);
+        
+        for (String segment : segments) {
+            assertNotNull("段落不应为null", segment);
+            assertFalse("段落不应为空", segment.trim().isEmpty());
+        }
+    }
+    
+    /**
+     * 属性：段落数量应该合理
+     */
+    @Property(trials = 100)
+    public void segmentCountShouldBeReasonable(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
+        
+        List<String> segments = segmentationService.segmentText(text);
+        
+        // 至少有一个段落
+        assertTrue("至少应该有一个段落", segments.size() >= 1);
+        
+        // 段落数量不应该超过文本长度（每个字符一个段落是极限）
+        assertTrue("段落数量应该合理", segments.size() <= text.length());
+    }
+    
+    /**
+     * 属性：段落长度应该在合理范围内
+     */
+    @Property(trials = 100)
+    public void segmentLengthShouldBeReasonable(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
+        
+        List<String> segments = segmentationService.segmentText(text);
+        
+        for (String segment : segments) {
+            // 段落长度应该在合理范围内（不超过150字符，考虑到MAX_SEGMENT_LENGTH=100的容差）
+            assertTrue("段落长度应该合理: " + segment.length(), 
+                      segment.length() <= 150);
+        }
+    }
+    
+    /**
+     * 属性：分段应该是幂等的（对已分段的文本再次分段应该得到相同结果）
+     */
+    @Property(trials = 100)
+    public void segmentationShouldBeIdempotent(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return;
+        }
+        
+        // 第一次分段
+        List<String> segments1 = segmentationService.segmentText(text);
+        
+        // 对每个段落再次分段
+        for (String segment : segments1) {
+            List<String> segments2 = segmentationService.segmentText(segment);
+            
+            // 如果段落长度合理，再次分段应该只返回一个段落
+            if (segment.length() <= 100) {
+                assertEquals("短段落再次分段应该返回自身", 1, segments2.size());
+                assertEquals("段落内容应该保持不变", 
+                           segment.trim(), segments2.get(0).trim());
+            }
+        }
+    }
+    
+    /**
+     * 属性：时长估算应该与文本长度成正比
+     */
+    @Property(trials = 100)
+    public void durationShouldBeProportionalToLength(String text1, String text2) {
+        if (text1 == null || text2 == null) {
+            return;
+        }
+        
+        String t1 = text1.trim();
+        String t2 = text2.trim();
+        
+        if (t1.isEmpty() || t2.isEmpty()) {
+            return;
+        }
+        
+        double duration1 = segmentationService.estimateDuration(t1);
+        double duration2 = segmentationService.estimateDuration(t2);
+        
+        // 时长应该非负
+        assertTrue("时长应该非负", duration1 >= 0);
+        assertTrue("时长应该非负", duration2 >= 0);
+        
+        // 如果文本1更长，时长1应该更长（或相等）
+        if (t1.length() > t2.length()) {
+            assertTrue("更长的文本应该有更长的时长", duration1 >= duration2);
+        }
+    }
+    
+    /**
+     * 属性：空文本应该返回空列表
+     */
+    @Property(trials = 100)
+    public void emptyTextShouldReturnEmptyList(String whitespace) {
+        // 创建只包含空白字符的文本
+        String emptyText = whitespace != null ? whitespace.replaceAll("\\S", "") : "";
+        
+        List<String> segments = segmentationService.segmentText(emptyText);
+        
+        assertTrue("空文本应该返回空列表", segments.isEmpty());
+    }
+}

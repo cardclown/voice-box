@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>情感语音分析API测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <h1>情感语音分析API测试</h1>
+    
+    <!-- 健康检查 -->
+    <div class="container">
+        <h2>1. 健康检查</h2>
+        <button onclick="healthCheck()">检查服务状态</button>
+        <div id="healthResult" class="result" style="display: none;"></div>
+    </div>
+    
+    <!-- 文本情感分析 -->
+    <div class="container">
+        <h2>2. 文本情感分析</h2>
+        <div class="form-group">
+            <label for="textInput">输入文本：</label>
+            <textarea id="textInput" rows="3" placeholder="请输入要分析的文本内容...">你好，我今天心情很好，希望能和你愉快地交流。</textarea>
+        </div>
+        <button onclick="analyzeText()">分析文本情感</button>
+        <div id="textResult" class="result" style="display: none;"></div>
+    </div>
+    
+    <!-- 用户画像管理 -->
+    <div class="container">
+        <h2>3. 用户画像管理</h2>
+        <div class="form-group">
+            <label for="userId">用户ID：</label>
+            <input type="text" id="userId" value="test_user_001" placeholder="输入用户ID">
+        </div>
+        <button onclick="getUserProfile()">获取用户画像</button>
+        <button onclick="clearUserProfile()">清除用户画像</button>
+        <div id="profileResult" class="result" style="display: none;"></div>
+    </div>
+    
+    <!-- 情感语音合成 -->
+    <div class="container">
+        <h2>4. 情感语音合成</h2>
+        <div class="form-group">
+            <label for="synthesisUserId">用户ID：</label>
+            <input type="text" id="synthesisUserId" value="test_user_001" placeholder="输入用户ID">
+        </div>
+        <div class="form-group">
+            <label for="synthesisText">合成文本：</label>
+            <textarea id="synthesisText" rows="3" placeholder="请输入要合成的文本...">你好，我今天心情很好，希望能和你愉快地交流。</textarea>
+        </div>
+        <div class="form-group">
+            <label for="targetEmotion">目标情绪（可选）：</label>
+            <select id="targetEmotion">
+                <option value="">自动（基于用户画像）</option>
+                <option value="HAPPY">开心</option>
+                <option value="SAD">悲伤</option>
+                <option value="ANGRY">愤怒</option>
+                <option value="CALM">平静</option>
+                <option value="EXCITED">兴奋</option>
+                <option value="NEUTRAL">中性</option>
+            </select>
+        </div>
+        <button onclick="synthesizeVoice()">生成情感语音</button>
+        <button onclick="getRecommendedParams()">获取推荐参数</button>
+        <div id="synthesisResult" class="result" style="display: none;"></div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8080/api/emotional-voice';
+        
+        // 健康检查
+        async function healthCheck() {
+            const resultDiv = document.getElementById('healthResult');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '检查中...';
+            resultDiv.className = 'result';
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.textContent = `错误: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        // 文本情感分析
+        async function analyzeText() {
+            const text = document.getElementById('textInput').value;
+            const resultDiv = document.getElementById('textResult');
+            
+            if (!text.trim()) {
+                alert('请输入文本内容');
+                return;
+            }
+            
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '分析中...';
+            resultDiv.className = 'result';
+            
+            try {
+                const formData = new FormData();
+                formData.append('text', text);
+                
+                const response = await fetch(`${API_BASE}/analyze-text`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+            } catch (error) {
+                resultDiv.textContent = `错误: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        // 获取用户画像
+        async function getUserProfile() {
+            const userId = document.getElementById('userId').value;
+            const resultDiv = document.getElementById('profileResult');
+            
+            if (!userId.trim()) {
+                alert('请输入用户ID');
+                return;
+            }
+            
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '获取中...';
+            resultDiv.className = 'result';
+            
+            try {
+                const response = await fetch(`${API_BASE}/profile/${userId}`);
+                const data = await response.json();
+                
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+            } catch (error) {
+                resultDiv.textContent = `错误: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        // 清除用户画像
+        async function clearUserProfile() {
+            const userId = document.getElementById('userId').value;
+            const resultDiv = document.getElementById('profileResult');
+            
+            if (!userId.trim()) {
+                alert('请输入用户ID');
+                return;
+            }
+            
+            if (!confirm(`确定要清除用户 ${userId} 的画像吗？`)) {
+                return;
+            }
+            
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '清除中...';
+            resultDiv.className = 'result';
+            
+            try {
+                const response = await fetch(`${API_BASE}/profile/${userId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+            } catch (error) {
+                resultDiv.textContent = `错误: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        // 生成情感语音
+        async function synthesizeVoice() {
+            const userId = document.getElementById('synthesisUserId').value;
+            const text = document.getElementById('synthesisText').value;
+            const emotion = document.getElementById('targetEmotion').value;
+            const resultDiv = document.getElementById('synthesisResult');
+            
+            if (!userId.trim()) {
+                alert('请输入用户ID');
+                return;
+            }
+            
+            if (!text.trim()) {
+                alert('请输入合成文本');
+                return;
+            }
+            
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '生成中...';
+            resultDiv.className = 'result';
+            
+            try {
+                const formData = new FormData();
+                formData.append('text', text);
+                if (emotion) {
+                    formData.append('emotion', emotion);
+                }
+                
+                const response = await fetch(`${API_BASE}/synthesize/${userId}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+            } catch (error) {
+                resultDiv.textContent = `错误: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+        
+        // 获取推荐参数
+        async function getRecommendedParams() {
+            const userId = document.getElementById('synthesisUserId').value;
+            const resultDiv = document.getElementById('synthesisResult');
+            
+            if (!userId.trim()) {
+                alert('请输入用户ID');
+                return;
+            }
+            
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '获取中...';
+            resultDiv.className = 'result';
+            
+            try {
+                const response = await fetch(`${API_BASE}/synthesize/params/${userId}`);
+                const data = await response.json();
+                
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                resultDiv.className = response.ok ? 'result success' : 'result error';
+            } catch (error) {
+                resultDiv.textContent = `错误: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>

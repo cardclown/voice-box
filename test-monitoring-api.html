@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音监控 API 测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #555;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+        }
+        .success {
+            border-left-color: #4CAF50;
+        }
+        .error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2196F3;
+            margin: 10px 0;
+        }
+        .metric-label {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 语音监控 API 测试</h1>
+        
+        <h2>1. 健康检查 API</h2>
+        <button onclick="testHealthAPI()">测试健康检查</button>
+        <div id="health-result"></div>
+        
+        <h2>2. 完整监控报告 API</h2>
+        <button onclick="testReportAPI()">测试监控报告</button>
+        <div id="report-result"></div>
+        
+        <h2>3. 前端集成测试</h2>
+        <button onclick="testFrontendIntegration()">测试前端集成</button>
+        <div id="frontend-result"></div>
+    </div>
+    
+    <div class="container">
+        <h2>📊 实时监控数据</h2>
+        <div id="metrics-display"></div>
+        <button onclick="refreshMetrics()">刷新数据</button>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:10088';
+
+        async function testHealthAPI() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.innerHTML = '<p>测试中...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/voice/monitoring/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <strong>✓ 健康检查通过</strong>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>✗ 健康检查失败</strong><br>
+                        错误: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testReportAPI() {
+            const resultDiv = document.getElementById('report-result');
+            resultDiv.innerHTML = '<p>测试中...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/voice/monitoring/report`);
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <strong>✓ 监控报告获取成功</strong>
+                            <p>数据包含: overall, stt, tts, users, languages, errors, performance</p>
+                            <details>
+                                <summary>查看完整数据</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>✗ 监控报告获取失败</strong><br>
+                        错误: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function testFrontendIntegration() {
+            const resultDiv = document.getElementById('frontend-result');
+            resultDiv.innerHTML = '<p>测试前端集成...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/voice/monitoring/report`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const requiredFields = ['overall', 'stt', 'tts', 'users', 'languages', 'errors', 'performance'];
+                    const missingFields = requiredFields.filter(field => !data[field]);
+                    
+                    if (missingFields.length === 0) {
+                        resultDiv.innerHTML = `
+                            <div class="result success">
+                                <strong>✓ 前端集成测试通过</strong>
+                                <p>所有必需字段都存在，前端应该能正常显示数据</p>
+                                <p>成功率: ${data.overall.successRate.toFixed(1)}%</p>
+                                <p>响应时间: ${data.overall.avgResponseTime.toFixed(0)}ms</p>
+                                <p>总请求数: ${data.overall.totalRequests}</p>
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="result error">
+                                <strong>✗ 缺少字段</strong><br>
+                                缺少字段: ${missingFields.join(', ')}
+                            </div>
+                        `;
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>✗ 前端集成测试失败</strong><br>
+                        错误: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function refreshMetrics() {
+            const metricsDiv = document.getElementById('metrics-display');
+            metricsDiv.innerHTML = '<p>加载中...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/voice/monitoring/report`);
+                if (response.ok) {
+                    const data = await response.json();
+                    metricsDiv.innerHTML = `
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <h4>🎯 识别准确率</h4>
+                                <div class="metric-value">${data.overall.successRate.toFixed(1)}%</div>
+                                <div class="metric-label">系统整体成功率</div>
+                            </div>
+                            <div class="metric-card">
+                                <h4>⚡ 响应时间</h4>
+                                <div class="metric-value">${data.overall.avgResponseTime.toFixed(0)}ms</div>
+                                <div class="metric-label">平均响应时间</div>
+                            </div>
+                            <div class="metric-card">
+                                <h4>📊 今日使用次数</h4>
+                                <div class="metric-value">${data.overall.totalRequests}</div>
+                                <div class="metric-label">总请求数</div>
+                            </div>
+                            <div class="metric-card">
+                                <h4>👥 活跃用户</h4>
+                                <div class="metric-value">${data.users.activeUsers}</div>
+                                <div class="metric-label">当前活跃用户数</div>
+                            </div>
+                            <div class="metric-card">
+                                <h4>🗣️ STT 准确率</h4>
+                                <div class="metric-value">${data.stt.accuracy.toFixed(1)}%</div>
+                                <div class="metric-label">语音识别准确率</div>
+                            </div>
+                            <div class="metric-card">
+                                <h4>🔊 TTS 质量</h4>
+                                <div class="metric-value">${data.tts.quality.toFixed(1)}%</div>
+                                <div class="metric-label">语音合成质量</div>
+                            </div>
+                        </div>
+                        <p><small>最后更新: ${new Date().toLocaleString()}</small></p>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                metricsDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>✗ 获取监控数据失败</strong><br>
+                        错误: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // 页面加载时自动运行测试
+        window.onload = function() {
+            testHealthAPI();
+            refreshMetrics();
+            // 每30秒自动刷新数据
+            setInterval(refreshMetrics, 30000);
+        };
+    </script>
+</body>
+</html>

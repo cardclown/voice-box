@@ -27,6 +27,36 @@
         </svg>
         <span>Video</span>
       </button>
+      <button
+        class="module-btn"
+        :class="{ active: currentModule === 'voice' }"
+        @click="handleModuleSwitch('voice')"
+        :aria-label="'切换到语音交互模块'"
+        :aria-current="currentModule === 'voice' ? 'page' : undefined"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        <span>Voice</span>
+      </button>
+      <button
+        class="module-btn"
+        :class="{ active: currentModule === 'emotional' }"
+        @click="handleModuleSwitch('emotional')"
+        :aria-label="'切换到情感语音模块'"
+        :aria-current="currentModule === 'emotional' ? 'page' : undefined"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+          <circle cx="8" cy="10" r="1.5"/>
+          <circle cx="16" cy="10" r="1.5"/>
+          <path d="M8 15s1.5 2 4 2 4-2 4-2"/>
+        </svg>
+        <span>Emotion</span>
+      </button>
     </nav>
   </aside>
 
@@ -54,6 +84,34 @@
         <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
       </svg>
       <span>Video</span>
+    </button>
+    <button
+      class="mobile-nav-btn"
+      :class="{ active: currentModule === 'voice' }"
+      @click="handleModuleSwitch('voice')"
+      :aria-label="'切换到语音交互模块'"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+      <span>Voice</span>
+    </button>
+    <button
+      class="mobile-nav-btn"
+      :class="{ active: currentModule === 'emotional' }"
+      @click="handleModuleSwitch('emotional')"
+      :aria-label="'切换到情感语音模块'"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+        <circle cx="8" cy="10" r="1.5"/>
+        <circle cx="16" cy="10" r="1.5"/>
+        <path d="M8 15s1.5 2 4 2 4-2 4-2"/>
+      </svg>
+      <span>Emotion</span>
     </button>
   </nav>
 </template>

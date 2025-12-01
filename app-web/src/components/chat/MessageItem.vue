@@ -1,5 +1,9 @@
 <template>
-  <div :class="['message-row', message.sender, 'fade-in']">
+  <div 
+    :class="['message-row', message.sender, 'fade-in']"
+    @mouseenter="showActions = true"
+    @mouseleave="showActions = false"
+  >
     <!-- AI 头像（左侧） -->
     <div v-if="message.sender === 'ai'" class="avatar ai-avatar">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -12,11 +16,33 @@
     <div class="message-content">
       <div class="sender-name">{{ message.sender === 'user' ? '我' : 'VoiceBox' }}</div>
       <div class="bubble">
-        <div class="bubble-text">
-          {{ message.text }}
-          <!-- 流式响应光标 -->
-          <span v-if="message.isStreaming" class="streaming-cursor">▊</span>
+        <div class="bubble-text" v-html="renderedText"></div>
+        <!-- 流式响应光标 -->
+        <span v-if="message.isStreaming" class="streaming-cursor">▊</span>
+        
+        <!-- 消息操作按钮 -->
+        <div v-if="showActions && !message.isStreaming" class="message-actions">
+          <button @click="copyMessage" class="action-btn" title="复制">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+          <button v-if="message.sender === 'ai'" @click="regenerate" class="action-btn" title="重新生成">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+          <button v-if="message.sender === 'user'" @click.stop="editMessage" class="action-btn" title="重新编辑">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
         </div>
+        
         <div v-if="message.attachment" class="attachment-info">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
@@ -37,12 +63,62 @@
 </template>
 
 <script setup>
-defineProps({
+import { ref, computed } from 'vue'
+import { renderMarkdown, containsMarkdown } from '../../utils/markdown'
+import { showSuccess, showError } from '../../composables/useToast'
+
+const props = defineProps({
   message: {
     type: Object,
     required: true
   }
 })
+
+const emit = defineEmits(['regenerate', 'edit', 'delete'])
+
+const showActions = ref(false)
+
+// 渲染消息内容（支持 Markdown）
+const renderedText = computed(() => {
+  const text = props.message.text || ''
+  
+  // 检测是否包含 Markdown 语法
+  if (containsMarkdown(text)) {
+    return renderMarkdown(text)
+  }
+  
+  // 普通文本，转义 HTML 并保留换行
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>')
+})
+
+// 复制消息
+async function copyMessage() {
+  try {
+    await navigator.clipboard.writeText(props.message.text)
+    showSuccess('已复制到剪贴板')
+  } catch (error) {
+    console.error('Copy error:', error)
+    showError('复制失败')
+  }
+}
+
+// 重新生成（AI消息）
+function regenerate() {
+  console.log('Regenerate message:', props.message)
+  emit('regenerate', props.message)
+  showSuccess('正在重新生成...')
+}
+
+// 重新编辑（用户消息）- 将内容填充到输入框
+function editMessage() {
+  console.log('Edit message:', props.message)
+  emit('edit', props.message)
+  showSuccess('内容已填充到输入框')
+}
 </script>
 
 <style scoped>
@@ -198,6 +274,94 @@ defineProps({
   }
   51%, 100% {
     opacity: 0;
+  }
+}
+
+/* 消息操作按钮 */
+.message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs, 0.375rem);
+  margin-top: var(--spacing-sm, 0.5rem);
+  padding-top: var(--spacing-sm, 0.5rem);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.2s ease-out;
+  align-items: center;
+}
+
+.message-row.user .message-actions {
+  border-top-color: rgba(255, 255, 255, 0.2);
+  justify-content: flex-end;
+}
+
+.message-row.ai .message-actions {
+  justify-content: flex-start;
+}
+
+.action-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  padding: var(--spacing-xs, 0.5rem);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  color: var(--text-secondary, #6b7280);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.action-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: var(--text-primary, #111827);
+  transform: scale(1.08);
+  z-index: 2;
+}
+
+.action-btn:active {
+  transform: scale(0.92);
+}
+
+.action-btn:focus {
+  outline: 2px solid var(--accent-color, #10a37f);
+  outline-offset: 2px;
+}
+
+.action-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.message-row.user .action-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.message-row.user .action-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  color: white;
+}
+
+/* 移动端按钮优化 */
+@media (max-width: 767px) {
+  .message-actions {
+    gap: var(--spacing-sm, 0.5rem);
+  }
+
+  .action-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: var(--spacing-sm, 0.625rem);
+  }
+
+  .action-btn svg {
+    width: 16px;
+    height: 16px;
   }
 }
 

@@ -1,0 +1,372 @@
+package com.example.voicebox.app.device.voice;
+
+import com.example.voicebox.app.device.controller.VoiceController;
+import com.example.voicebox.app.device.domain.VoiceMessage;
+import com.example.voicebox.app.device.repository.VoiceMessageRepository;
+import com.example.voicebox.app.device.service.voice.VoiceOutputService;
+import com.example.voicebox.app.device.service.voice.VoiceStorageService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * 语音输出流程集成测试
+ * 
+ * 测试完整的语音输出流程：
+ * 1. TTS合成
+ * 2. 音频保存
+ * 3. 音频下载
+ * 
+ * 验证需求: 2.1, 2.2, 3.2
+ */
+@SpringBootTest
+@ActiveProfiles("test")
+public class VoiceOutputIntegrationTest {
+
+    @Autowired
+    private WebApplicationContext webApplicationContext;
+
+    @Autowired
+    private VoiceMessageRepository voiceMessageRepository;
+
+    @Autowired
+    private VoiceStorageService voiceStorageService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        voiceMessageRepository.deleteAll();
+    }
+
+    /**
+     * 测试完整的语音合成流程
+     * 
+     * 场景：
+     * 1. 用户请求将文本转换为语音
+     * 2. 系统调用TTS服务合成语音
+     * 3. 系统保存音频文件
+     * 4. 返回文件ID
+     * 5. 用户通过文件ID下载音频
+     * 
+     * 验证：
+     * - TTS请求成功
+     * - 返回有效的文件ID
+     * - 数据库中保存了记录
+     * - 可以通过文件ID下载音频
+     * - 下载的音频文件不为空
+     */
+    @Test
+    void testCompleteTTSFlow() throws Exception {
+        // 准备测试数据
+        Long userId = 1L;
+        String text = "你好，这是语音合成测试";
+        String language = "zh-CN";
+        String voiceName = "zh_female_qingxin";
+
+        // 构建请求体
+        Map<String, Object> request = new HashMap<>();
+        request.put("text", text);
+        request.put("userId", userId);
+        request.put("language", language);
+        request.put("voiceName", voiceName);
+
+        // 执行TTS合成请求
+        MvcResult synthesizeResult = mockMvc.perform(post("/api/voice/synthesize")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.fileId").exists())
+                .andExpect(jsonPath("$.duration").exists())
+                .andReturn();
+
+        // 解析响应获取文件ID
+        String responseBody = synthesizeResult.getResponse().getContentAsString();
+        Map<String, Object> response = objectMapper.readValue(responseBody, Map.class);
+        String fileId = (String) response.get("fileId");
+
+        assertThat(fileId).isNotNull();
+        assertThat(fileId).isNotEmpty();
+
+        // 验证数据库中保存了记录
+        Optional<VoiceMessage> savedMessage = voiceMessageRepository.findAll()
+            .stream()
+            .filter(m -> m.getFileId().equals(fileId))
+            .findFirst();
+
+        assertThat(savedMessage).isPresent();
+        assertThat(savedMessage.get().getUserId()).isEqualTo(userId);
+        assertThat(savedMessage.get().getOriginalText()).isEqualTo(text);
+        assertThat(savedMessage.get().getLanguage()).isEqualTo(language);
+
+        // 测试音频下载
+        mockMvc.perform(get("/api/voice/audio/" + fileId))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("audio/*"))
+                .andExpect(result -> {
+                    byte[] audioData = result.getResponse().getContentAsByteArray();
+                    assertThat(audioData).isNotEmpty();
+                    assertThat(audioData.length).isGreaterThan(0);
+                });
+    }
+
+    /**
+     * 测试个性化音色选择
+     * 
+     * 场景：
+     * 1. 用户指定特定的音色
+     * 2. 系统使用指定的音色进行合成
+     * 
+     * 验证：
+     * - 系统接受音色参数
+     * - 数据库中保存了音色信息
+     */
+    @Test
+    void testPersonalizedVoiceSelection() throws Exception {
+        Long userId = 1L;
+        String text = "测试个性化音色";
+        String[] voiceNames = {
+            "zh_female_qingxin",
+            "zh_male_chunhou",
+            "en_female_clara"
+        };
+
+        for (String voiceName : voiceNames) {
+            Map<String, Object> request = new HashMap<>();
+            request.put("text", text);
+            request.put("userId", userId);
+            request.put("voiceName", voiceName);
+
+            mockMvc.perform(post("/api/voice/synthesize")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        // 验证数据库中保存了所有音色的记录
+        assertThat(voiceMessageRepository.count()).isEqualTo(voiceNames.length);
+    }
+
+    /**
+     * 测试空文本被拒绝
+     * 
+     * 场景：用户尝试合成空文本
+     * 
+     * 验证：
+     * - 返回错误响应
+     * - 错误消息提示文本不能为空
+     */
+    @Test
+    void testSynthesizeEmptyText() throws Exception {
+        Map<String, Object> request = new HashMap<>();
+        request.put("text", "");
+        request.put("userId", 1L);
+
+        mockMvc.perform(post("/api/voice/synthesize")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorMessage").value(org.hamcrest.Matchers.containsString("文本")));
+    }
+
+    /**
+     * 测试过长文本被拒绝
+     * 
+     * 场景：用户尝试合成超过限制长度的文本
+     * 
+     * 验证：
+     * - 返回错误响应
+     * - 错误消息提示文本过长
+     */
+    @Test
+    void testSynthesizeOversizedText() throws Exception {
+        // 创建超长文本（超过5000字符）
+        StringBuilder longText = new StringBuilder();
+        for (int i = 0; i < 6000; i++) {
+            longText.append("测");
+        }
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("text", longText.toString());
+        request.put("userId", 1L);
+
+        mockMvc.perform(post("/api/voice/synthesize")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorMessage").value(org.hamcrest.Matchers.containsString("长度")));
+    }
+
+    /**
+     * 测试下载不存在的音频文件
+     * 
+     * 场景：用户尝试下载不存在的文件ID
+     * 
+     * 验证：
+     * - 返回404或错误响应
+     */
+    @Test
+    void testDownloadNonExistentAudio() throws Exception {
+        String nonExistentFileId = "non-existent-file-id";
+
+        mockMvc.perform(get("/api/voice/audio/" + nonExistentFileId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorMessage").value(org.hamcrest.Matchers.containsString("不存在")));
+    }
+
+    /**
+     * 测试多语言TTS
+     * 
+     * 场景：合成不同语言的文本
+     * 
+     * 验证：
+     * - 系统支持多种语言
+     * - 每种语言都能成功合成
+     */
+    @Test
+    void testMultiLanguageTTS() throws Exception {
+        Long userId = 1L;
+        
+        Map<String, String> languageTexts = new HashMap<>();
+        languageTexts.put("zh-CN", "你好世界");
+        languageTexts.put("en-US", "Hello World");
+        languageTexts.put("ja-JP", "こんにちは世界");
+
+        for (Map.Entry<String, String> entry : languageTexts.entrySet()) {
+            Map<String, Object> request = new HashMap<>();
+            request.put("text", entry.getValue());
+            request.put("userId", userId);
+            request.put("language", entry.getKey());
+
+            mockMvc.perform(post("/api/voice/synthesize")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.fileId").exists());
+        }
+
+        // 验证数据库中保存了所有语言的记录
+        assertThat(voiceMessageRepository.count()).isEqualTo(languageTexts.size());
+    }
+
+    /**
+     * 测试语速调整
+     * 
+     * 场景：用户指定不同的语速进行合成
+     * 
+     * 验证：
+     * - 系统接受语速参数
+     * - 不同语速都能成功合成
+     */
+    @Test
+    void testSpeechRateAdjustment() throws Exception {
+        Long userId = 1L;
+        String text = "测试语速调整";
+        double[] speechRates = {0.5, 1.0, 1.5, 2.0};
+
+        for (double rate : speechRates) {
+            Map<String, Object> request = new HashMap<>();
+            request.put("text", text);
+            request.put("userId", userId);
+            request.put("speechRate", rate);
+
+            mockMvc.perform(post("/api/voice/synthesize")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+    }
+
+    /**
+     * 测试音频文件持久化
+     * 
+     * 场景：
+     * 1. 合成语音
+     * 2. 验证文件被保存到存储系统
+     * 3. 验证文件可以被读取
+     * 
+     * 验证：
+     * - 文件存在于存储系统
+     * - 文件内容不为空
+     */
+    @Test
+    void testAudioFilePersistence() throws Exception {
+        Long userId = 1L;
+        String text = "测试音频持久化";
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("text", text);
+        request.put("userId", userId);
+
+        // 合成语音
+        MvcResult result = mockMvc.perform(post("/api/voice/synthesize")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andReturn();
+
+        // 获取文件ID
+        String responseBody = result.getResponse().getContentAsString();
+        Map<String, Object> response = objectMapper.readValue(responseBody, Map.class);
+        String fileId = (String) response.get("fileId");
+
+        // 验证文件存在
+        String filePath = voiceStorageService.getFilePath(fileId);
+        assertThat(filePath).isNotNull();
+
+        // 验证可以读取文件
+        byte[] audioData = voiceStorageService.readAudioFile(fileId);
+        assertThat(audioData).isNotNull();
+        assertThat(audioData.length).isGreaterThan(0);
+    }
+
+    /**
+     * 测试缺少必需参数
+     * 
+     * 场景：TTS请求缺少必需的参数
+     * 
+     * 验证：返回错误响应
+     */
+    @Test
+    void testSynthesizeWithMissingParameters() throws Exception {
+        // 缺少text参数
+        Map<String, Object> request = new HashMap<>();
+        request.put("userId", 1L);
+
+        mockMvc.perform(post("/api/voice/synthesize")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+}

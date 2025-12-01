@@ -3,7 +3,10 @@ import { ref, onMounted } from 'vue'
 import AppShell from './components/layout/AppShell.vue'
 import ChatContainer from './components/chat/ChatContainer.vue'
 import VideoGenerator from './components/video/VideoGenerator.vue'
+import EmotionalVoice from './views/EmotionalVoice.vue'
+import VoiceInteraction from './views/VoiceInteraction.vue'
 import ThemeToggle from './components/common/ThemeToggle.vue'
+import Toast from './components/common/Toast.vue'
 import { useThemeStore } from './stores/theme'
 
 const currentModule = ref('chat')
@@ -28,7 +31,12 @@ onMounted(() => {
     <AppShell :current-module="currentModule" @switch-module="switchModule">
       <ChatContainer v-if="currentModule === 'chat'" />
       <VideoGenerator v-else-if="currentModule === 'video'" />
+      <VoiceInteraction v-else-if="currentModule === 'voice'" />
+      <EmotionalVoice v-else-if="currentModule === 'emotional'" />
     </AppShell>
+
+    <!-- Toast 通知 -->
+    <Toast />
   </div>
 </template>
 

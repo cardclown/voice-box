@@ -1,0 +1,321 @@
+package com.example.voicebox.app.device.voice;
+
+import com.example.voicebox.app.device.controller.VoiceController;
+import com.example.voicebox.app.device.domain.VoiceMessage;
+import com.example.voicebox.app.device.repository.VoiceMessageRepository;
+import com.example.voicebox.app.device.service.voice.VoiceInputService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * 语音输入流程集成测试
+ * 
+ * 测试完整的语音输入流程：
+ * 1. 上传音频文件
+ * 2. STT识别
+ * 3. 数据保存
+ * 
+ * 验证需求: 1.1, 1.3, 1.4, 1.5
+ */
+@SpringBootTest
+@ActiveProfiles("test")
+public class VoiceInputIntegrationTest {
+
+    @Autowired
+    private WebApplicationContext webApplicationContext;
+
+    @Autowired
+    private VoiceMessageRepository voiceMessageRepository;
+
+    @Autowired
+    private VoiceInputService voiceInputService;
+
+    private MockMvc mockMvc;
+
+    @TempDir
+    Path tempDir;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        voiceMessageRepository.deleteAll();
+    }
+
+    /**
+     * 测试完整的语音输入流程
+     * 
+     * 场景：
+     * 1. 用户上传一个有效的音频文件
+     * 2. 系统进行STT识别
+     * 3. 系统保存识别结果到数据库
+     * 4. 返回识别的文本
+     * 
+     * 验证：
+     * - HTTP响应状态为200
+     * - 返回的JSON包含识别的文本
+     * - 数据库中保存了语音消息记录
+     * - 音频文件被正确存储
+     */
+    @Test
+    void testCompleteVoiceInputFlow() throws Exception {
+        // 准备测试数据
+        Long userId = 1L;
+        Long sessionId = 100L;
+        String language = "zh-CN";
+        
+        // 创建模拟音频文件（实际应该是有效的音频数据）
+        byte[] audioContent = createMockAudioData();
+        MockMultipartFile audioFile = new MockMultipartFile(
+            "file",
+            "test-audio.wav",
+            "audio/wav",
+            audioContent
+        );
+
+        // 执行上传请求
+        mockMvc.perform(multipart("/api/voice/upload")
+                .file(audioFile)
+                .param("userId", userId.toString())
+                .param("sessionId", sessionId.toString())
+                .param("language", language))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.recognizedText").exists())
+                .andExpect(jsonPath("$.fileId").exists())
+                .andExpect(jsonPath("$.duration").exists());
+
+        // 验证数据库中保存了记录
+        Optional<VoiceMessage> savedMessage = voiceMessageRepository.findAll()
+            .stream()
+            .filter(m -> m.getUserId().equals(userId))
+            .findFirst();
+
+        assertThat(savedMessage).isPresent();
+        assertThat(savedMessage.get().getSessionId()).isEqualTo(sessionId);
+        assertThat(savedMessage.get().getLanguage()).isEqualTo(language);
+        assertThat(savedMessage.get().getRecognizedText()).isNotNull();
+        assertThat(savedMessage.get().getFileId()).isNotNull();
+    }
+
+    /**
+     * 测试上传大文件被拒绝
+     * 
+     * 场景：用户尝试上传超过10MB的音频文件
+     * 
+     * 验证：
+     * - 返回错误响应
+     * - 错误消息提示文件过大
+     * - 数据库中没有保存记录
+     */
+    @Test
+    void testUploadOversizedFile() throws Exception {
+        Long userId = 1L;
+        Long sessionId = 100L;
+        
+        // 创建超大文件（11MB）
+        byte[] largeAudioContent = new byte[11 * 1024 * 1024];
+        MockMultipartFile largeFile = new MockMultipartFile(
+            "file",
+            "large-audio.wav",
+            "audio/wav",
+            largeAudioContent
+        );
+
+        // 执行上传请求
+        mockMvc.perform(multipart("/api/voice/upload")
+                .file(largeFile)
+                .param("userId", userId.toString())
+                .param("sessionId", sessionId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorMessage").value(org.hamcrest.Matchers.containsString("文件大小")));
+
+        // 验证数据库中没有保存记录
+        assertThat(voiceMessageRepository.count()).isEqualTo(0);
+    }
+
+    /**
+     * 测试上传无效格式文件
+     * 
+     * 场景：用户尝试上传非音频格式的文件
+     * 
+     * 验证：
+     * - 返回错误响应
+     * - 错误消息提示格式不支持
+     */
+    @Test
+    void testUploadInvalidFormat() throws Exception {
+        Long userId = 1L;
+        Long sessionId = 100L;
+        
+        // 创建文本文件
+        byte[] textContent = "This is not an audio file".getBytes();
+        MockMultipartFile textFile = new MockMultipartFile(
+            "file",
+            "test.txt",
+            "text/plain",
+            textContent
+        );
+
+        // 执行上传请求
+        mockMvc.perform(multipart("/api/voice/upload")
+                .file(textFile)
+                .param("userId", userId.toString())
+                .param("sessionId", sessionId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.errorMessage").value(org.hamcrest.Matchers.containsString("格式")));
+    }
+
+    /**
+     * 测试缺少必需参数
+     * 
+     * 场景：上传请求缺少userId参数
+     * 
+     * 验证：返回错误响应
+     */
+    @Test
+    void testUploadWithMissingParameters() throws Exception {
+        byte[] audioContent = createMockAudioData();
+        MockMultipartFile audioFile = new MockMultipartFile(
+            "file",
+            "test-audio.wav",
+            "audio/wav",
+            audioContent
+        );
+
+        // 缺少userId参数
+        mockMvc.perform(multipart("/api/voice/upload")
+                .file(audioFile)
+                .param("sessionId", "100"))
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * 测试音频时长计算
+     * 
+     * 场景：上传音频文件后，系统应该计算并返回音频时长
+     * 
+     * 验证：
+     * - 返回的duration字段存在且大于0
+     * - 数据库中保存的duration正确
+     */
+    @Test
+    void testAudioDurationCalculation() throws Exception {
+        Long userId = 1L;
+        Long sessionId = 100L;
+        
+        byte[] audioContent = createMockAudioData();
+        MockMultipartFile audioFile = new MockMultipartFile(
+            "file",
+            "test-audio.wav",
+            "audio/wav",
+            audioContent
+        );
+
+        // 执行上传请求
+        mockMvc.perform(multipart("/api/voice/upload")
+                .file(audioFile)
+                .param("userId", userId.toString())
+                .param("sessionId", sessionId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.duration").exists())
+                .andExpect(jsonPath("$.duration").isNumber());
+
+        // 验证数据库中的时长
+        Optional<VoiceMessage> savedMessage = voiceMessageRepository.findAll()
+            .stream()
+            .findFirst();
+
+        assertThat(savedMessage).isPresent();
+        assertThat(savedMessage.get().getDuration()).isNotNull();
+        assertThat(savedMessage.get().getDuration()).isGreaterThanOrEqualTo(0);
+    }
+
+    /**
+     * 测试多语言支持
+     * 
+     * 场景：上传音频时指定不同的语言
+     * 
+     * 验证：
+     * - 系统接受不同的语言参数
+     * - 数据库中正确保存语言信息
+     */
+    @Test
+    void testMultiLanguageSupport() throws Exception {
+        Long userId = 1L;
+        Long sessionId = 100L;
+        String[] languages = {"zh-CN", "en-US", "ja-JP"};
+
+        for (String language : languages) {
+            byte[] audioContent = createMockAudioData();
+            MockMultipartFile audioFile = new MockMultipartFile(
+                "file",
+                "test-audio-" + language + ".wav",
+                "audio/wav",
+                audioContent
+            );
+
+            mockMvc.perform(multipart("/api/voice/upload")
+                    .file(audioFile)
+                    .param("userId", userId.toString())
+                    .param("sessionId", sessionId.toString())
+                    .param("language", language))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+        }
+
+        // 验证数据库中保存了所有语言的记录
+        assertThat(voiceMessageRepository.count()).isEqualTo(languages.length);
+    }
+
+    /**
+     * 创建模拟音频数据
+     * 
+     * 注意：这是简化的测试数据，实际测试中应该使用真实的音频文件
+     */
+    private byte[] createMockAudioData() {
+        // 创建一个简单的WAV文件头
+        byte[] wavHeader = new byte[44];
+        // RIFF header
+        wavHeader[0] = 'R'; wavHeader[1] = 'I'; wavHeader[2] = 'F'; wavHeader[3] = 'F';
+        // File size (will be filled later)
+        // WAVE header
+        wavHeader[8] = 'W'; wavHeader[9] = 'A'; wavHeader[10] = 'V'; wavHeader[11] = 'E';
+        // fmt chunk
+        wavHeader[12] = 'f'; wavHeader[13] = 'm'; wavHeader[14] = 't'; wavHeader[15] = ' ';
+        
+        // 添加一些音频数据
+        byte[] audioData = new byte[1024];
+        for (int i = 0; i < audioData.length; i++) {
+            audioData[i] = (byte) (Math.sin(i * 0.1) * 127);
+        }
+        
+        // 合并头部和数据
+        byte[] result = new byte[wavHeader.length + audioData.length];
+        System.arraycopy(wavHeader, 0, result, 0, wavHeader.length);
+        System.arraycopy(audioData, 0, result, wavHeader.length, audioData.length);
+        
+        return result;
+    }
+}

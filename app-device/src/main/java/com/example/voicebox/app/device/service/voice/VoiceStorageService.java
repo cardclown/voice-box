@@ -241,4 +241,23 @@ public class VoiceStorageService {
             .findFirst()
             .orElse(null);
     }
+    
+    /**
+     * 保存音频段（用于流式播放）
+     * 不需要userId，使用临时存储
+     */
+    public String saveAudioSegment(byte[] audioData, String segmentId) throws IOException {
+        // 构建临时存储路径
+        Path storagePath = Paths.get(basePath, "temp", segmentId + ".mp3");
+        
+        // 确保目录存在
+        Files.createDirectories(storagePath.getParent());
+        
+        // 保存文件
+        Files.write(storagePath, audioData);
+        
+        logger.debug("音频段已保存: segmentId={}, size={}", segmentId, audioData.length);
+        
+        return segmentId;
+    }
 }

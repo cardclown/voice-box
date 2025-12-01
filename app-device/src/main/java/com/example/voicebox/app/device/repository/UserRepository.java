@@ -42,7 +42,7 @@ public class UserRepository {
                     "avatar_url VARCHAR(500)," +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                     "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP," +
-                    "last_active_at TIMESTAMP," +
+                    "last_active_at TIMESTAMP NULL DEFAULT NULL," +
                     "preferences JSON," +
                     "INDEX idx_username (username)," +
                     "INDEX idx_email (email)" +

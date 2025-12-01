@@ -241,6 +241,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted } from 'vue'
+import { useVoiceInput } from '@/composables/useVoiceInput'
 
 const API_BASE = 'http://localhost:10088/api'
 const DEVICE_INFO = typeof navigator !== 'undefined'
@@ -266,8 +267,17 @@ const videoInput = ref(null)
 
 // New refs for attachments and voice
 const attachmentInput = ref(null)
-const isRecording = ref(false)
 const tempAttachment = ref(null)
+
+// 使用语音输入 composable
+const {
+  isRecording,
+  hasPermission,
+  recognizedText,
+  startRecording,
+  stopRecording,
+  requestPermission
+} = useVoiceInput()
 
 const selectedVideo = ref(null)
 const conversionMessage = ref('')
@@ -435,14 +445,43 @@ const handleAttachmentChange = (event) => {
   event.target.value = '' // Reset input
 }
 
-const toggleVoiceRecording = () => {
-  isRecording.value = !isRecording.value
+const toggleVoiceRecording = async () => {
+  // 检查麦克风权限
+  if (!hasPermission.value) {
+    try {
+      await requestPermission()
+    } catch (error) {
+      console.error('麦克风权限被拒绝:', error)
+      alert('需要麦克风权限才能使用语音输入功能')
+      return
+    }
+  }
+
   if (isRecording.value) {
-    // Mock recording start
-    chatInput.value = '正在听...'
+    // 停止录音
+    try {
+      const result = await stopRecording(
+        1, // userId - 临时使用固定值,实际应该从用户状态获取
+        currentSessionId.value || 1, // sessionId
+        'zh-CN' // language
+      )
+      
+      if (result && result.recognizedText) {
+        chatInput.value = result.recognizedText
+      }
+    } catch (error) {
+      console.error('停止录音失败:', error)
+      alert('语音识别失败,请重试')
+    }
   } else {
-    // Mock recording end
-    chatInput.value = '语音输入转文字测试内容'
+    // 开始录音
+    try {
+      await startRecording()
+      chatInput.value = '正在聆听...'
+    } catch (error) {
+      console.error('开始录音失败:', error)
+      alert('无法启动录音,请检查麦克风权限')
+    }
   }
 }
 

@@ -3,7 +3,7 @@
  * 处理 Server-Sent Events (SSE) 流式数据
  */
 
-const API_BASE = 'http://localhost:10088/api'
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:10088/api'
 
 /**
  * 创建流式聊天请求

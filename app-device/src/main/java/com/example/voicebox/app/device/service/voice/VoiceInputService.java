@@ -23,9 +23,9 @@ import java.util.UUID;
 /**
  * 语音输入服务
  */
-@Slf4j
 @Service
 public class VoiceInputService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(VoiceInputService.class);
 
     @Autowired
     private VoiceServiceProxy voiceServiceProxy;

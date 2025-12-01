@@ -38,11 +38,12 @@ public class VoiceOutputService {
     public VoiceSynthesisResponse synthesizeVoice(
             String text,
             Long userId,
+            Long sessionId,
             String language,
             String voiceName) throws Exception {
 
-        log.info("开始语音合成 - userId: {}, text: {}, language: {}, voice: {}", 
-                userId, text, language, voiceName);
+        log.info("开始语音合成 - userId: {}, sessionId: {}, text: {}, language: {}, voice: {}", 
+                userId, sessionId, text, language, voiceName);
 
         // 1. 获取用户偏好的语音配置
         if (voiceName == null || voiceName.isEmpty()) {
@@ -63,6 +64,7 @@ public class VoiceOutputService {
         // 5. 保存语音消息记录
         VoiceMessage voiceMessage = new VoiceMessage();
         voiceMessage.setUserId(userId);
+        voiceMessage.setSessionId(sessionId);
         voiceMessage.setFileId(fileId);
         voiceMessage.setFilePath(storageService.getFilePath(fileId));
         voiceMessage.setFileSize((long) audioData.length);

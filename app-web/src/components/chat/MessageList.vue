@@ -7,7 +7,11 @@
     </div>
 
     <div v-for="(msg, index) in messages" :key="`msg-${index}`" class="message-wrapper">
-      <MessageItem :message="msg" />
+      <MessageItem 
+        :message="msg" 
+        @regenerate="handleRegenerate"
+        @edit="handleEdit"
+      />
     </div>
 
     <div v-if="loading" class="message-wrapper">
@@ -32,6 +36,8 @@ defineProps({
   }
 })
 
+const emit = defineEmits(['regenerate', 'edit'])
+
 const chatWindow = ref(null)
 
 const scrollToBottom = async () => {
@@ -39,6 +45,16 @@ const scrollToBottom = async () => {
   if (chatWindow.value) {
     chatWindow.value.scrollTop = chatWindow.value.scrollHeight
   }
+}
+
+// 处理重新生成
+function handleRegenerate(message) {
+  emit('regenerate', message)
+}
+
+// 处理编辑
+function handleEdit(message) {
+  emit('edit', message)
 }
 
 defineExpose({

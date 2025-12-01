@@ -1,0 +1,390 @@
+package com.example.voicebox.app.device.emotional;
+
+import com.example.voicebox.app.device.controller.EmotionalVoiceController;
+import com.example.voicebox.app.device.domain.UserEmotionalProfile;
+import com.example.voicebox.app.device.repository.UserEmotionalProfileRepository;
+import com.example.voicebox.app.device.repository.EmotionalVoiceMessageRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.*;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.util.MultiValueMap;
+import java.util.HashMap;
+
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * 情感语音模块端到端测试
+ * 
+ * 测试完整的用户场景：
+ * 1. 语音分析流程
+ * 2. 情感合成流程
+ * 3. 用户画像更新流程
+ * 4. 标签生成流程
+ * 5. 统计数据展示
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
+@DisplayName("情感语音模块端到端测试")
+public class EmotionalVoiceE2ETest {
+
+    @Autowired
+    private TestRestTemplate restTemplate;
+
+    @Autowired
+    private UserEmotionalProfileRepository profileRepository;
+
+    @Autowired
+    private EmotionalVoiceMessageRepository messageRepository;
+
+    @Test
+    @DisplayName("场景1: 完整的语音分析流程")
+    public void testCompleteVoiceAnalysisFlow() {
+        // 准备测试数据
+        Long userId = 1L;
+        String sessionId = "test-session-001";
+        
+        // 创建模拟音频文件
+        MockMultipartFile audioFile = new MockMultipartFile(
+            "audioFile",
+            "test-audio.wav",
+            "audio/wav",
+            "mock audio content".getBytes()
+        );
+
+        // 1. 发送语音分析请求
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> body = new LinkedMultipartValueMap<>();
+        body.add("audioFile", audioFile.getResource());
+        body.add("userId", userId);
+        body.add("sessionId", sessionId);
+        body.add("text", "我今天心情很好");
+
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+        ResponseEntity<Map> response = restTemplate.postForEntity(
+            "/api/emotional-voice/analyze",
+            requestEntity,
+            Map.class
+        );
+
+        // 2. 验证响应
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        
+        Map<String, Object> result = response.getBody();
+        assertThat(result).containsKey("primaryEmotion");
+        assertThat(result).containsKey("confidence");
+        assertThat(result).containsKey("voiceFeatures");
+        assertThat(result).containsKey("tags");
+
+        // 3. 验证情绪识别结果
+        String primaryEmotion = (String) result.get("primaryEmotion");
+        assertThat(primaryEmotion).isIn("HAPPY", "SAD", "ANGRY", "CALM", "ANXIOUS");
+
+        Double confidence = (Double) result.get("confidence");
+        assertThat(confidence).isBetween(0.0, 1.0);
+
+        // 4. 验证语音特征提取
+        Map<String, Object> voiceFeatures = (Map<String, Object>) result.get("voiceFeatures");
+        assertThat(voiceFeatures).containsKey("pitch");
+        assertThat(voiceFeatures).containsKey("volume");
+        assertThat(voiceFeatures).containsKey("speed");
+
+        // 5. 验证标签生成
+        assertThat(result.get("tags")).isNotNull();
+
+        System.out.println("✓ 语音分析流程测试通过");
+        System.out.println("  - 主要情绪: " + primaryEmotion);
+        System.out.println("  - 置信度: " + confidence);
+    }
+
+    @Test
+    @DisplayName("场景2: 完整的情感语音合成流程")
+    public void testCompleteEmotionalSynthesisFlow() {
+        // 准备测试数据
+        Long userId = 1L;
+        String text = "你好，今天天气真不错";
+        String targetEmotion = "HAPPY";
+
+        // 1. 发送情感合成请求
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> requestBody = Map.of(
+            "userId", userId,
+            "text", text,
+            "targetEmotion", targetEmotion,
+            "intensity", 0.7
+        );
+
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+        ResponseEntity<byte[]> response = restTemplate.postForEntity(
+            "/api/emotional-voice/synthesize",
+            requestEntity,
+            byte[].class
+        );
+
+        // 2. 验证响应
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().length).isGreaterThan(0);
+
+        // 3. 验证响应头
+        HttpHeaders responseHeaders = response.getHeaders();
+        assertThat(responseHeaders.getContentType()).isEqualTo(MediaType.parseMediaType("audio/mpeg"));
+
+        System.out.println("✓ 情感语音合成流程测试通过");
+        System.out.println("  - 音频大小: " + response.getBody().length + " bytes");
+    }
+
+    @Test
+    @DisplayName("场景3: 用户画像更新流程")
+    public void testUserProfileUpdateFlow() {
+        // 准备测试数据
+        Long userId = 2L;
+
+        // 1. 模拟多次语音交互（通过分析接口）
+        for (int i = 0; i < 3; i++) {
+            MockMultipartFile audioFile = new MockMultipartFile(
+                "audioFile",
+                "test-audio-" + i + ".wav",
+                "audio/wav",
+                ("mock audio content " + i).getBytes()
+            );
+
+            MultiValueMap<String, Object> body = new LinkedMultipartValueMap<>();
+            body.add("audioFile", audioFile.getResource());
+            body.add("userId", userId);
+            body.add("sessionId", "test-session-" + i);
+            body.add("text", "测试文本 " + i);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+            restTemplate.postForEntity("/api/emotional-voice/analyze", requestEntity, Map.class);
+        }
+
+        // 2. 查询用户画像
+        ResponseEntity<Map> profileResponse = restTemplate.getForEntity(
+            "/api/emotional-voice/profile/" + userId,
+            Map.class
+        );
+
+        // 3. 验证画像数据
+        assertThat(profileResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(profileResponse.getBody()).isNotNull();
+
+        Map<String, Object> profile = profileResponse.getBody();
+        assertThat(profile).containsKey("userId");
+        assertThat(profile).containsKey("tags");
+        assertThat(profile).containsKey("emotionHistory");
+        assertThat(profile).containsKey("statistics");
+
+        System.out.println("✓ 用户画像更新流程测试通过");
+        System.out.println("  - 用户ID: " + profile.get("userId"));
+        System.out.println("  - 标签数量: " + ((Map) profile.get("tags")).size());
+    }
+
+    @Test
+    @DisplayName("场景4: 标签生成和置信度计算")
+    public void testTagGenerationFlow() {
+        // 准备测试数据
+        Long userId = 3L;
+        String sessionId = "test-session-tags";
+
+        // 1. 发送带有明确情绪特征的语音
+        MockMultipartFile audioFile = new MockMultipartFile(
+            "audioFile",
+            "happy-audio.wav",
+            "audio/wav",
+            "happy audio content".getBytes()
+        );
+
+        MultiValueMap<String, Object> body = new LinkedMultipartValueMap<>();
+        body.add("audioFile", audioFile.getResource());
+        body.add("userId", userId);
+        body.add("sessionId", sessionId);
+        body.add("text", "我非常开心和兴奋");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+        ResponseEntity<Map> response = restTemplate.postForEntity(
+            "/api/emotional-voice/analyze",
+            requestEntity,
+            Map.class
+        );
+
+        // 2. 验证标签生成
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> result = response.getBody();
+        
+        Map<String, Object> tags = (Map<String, Object>) result.get("tags");
+        assertThat(tags).isNotEmpty();
+
+        // 3. 验证标签置信度
+        for (Map.Entry<String, Object> entry : tags.entrySet()) {
+            String tagName = entry.getKey();
+            Double confidence = (Double) entry.getValue();
+            
+            assertThat(confidence).isBetween(0.0, 1.0);
+            System.out.println("  - 标签: " + tagName + ", 置信度: " + confidence);
+        }
+
+        System.out.println("✓ 标签生成流程测试通过");
+    }
+
+    @Test
+    @DisplayName("场景5: 统计数据展示")
+    public void testStatisticsDisplay() {
+        // 准备测试数据
+        Long userId = 4L;
+
+        // 1. 模拟多次不同情绪的交互
+        String[] emotions = {"HAPPY", "SAD", "CALM"};
+        for (int i = 0; i < emotions.length; i++) {
+            MockMultipartFile audioFile = new MockMultipartFile(
+                "audioFile",
+                "test-audio-" + emotions[i] + ".wav",
+                "audio/wav",
+                (emotions[i] + " audio content").getBytes()
+            );
+
+            MultiValueMap<String, Object> body = new LinkedMultipartValueMap<>();
+            body.add("audioFile", audioFile.getResource());
+            body.add("userId", userId);
+            body.add("sessionId", "test-session-stats-" + i);
+            body.add("text", "测试 " + emotions[i]);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+            restTemplate.postForEntity("/api/emotional-voice/analyze", requestEntity, Map.class);
+        }
+
+        // 2. 查询统计数据
+        ResponseEntity<Map> statsResponse = restTemplate.getForEntity(
+            "/api/emotional-voice/profile/" + userId,
+            Map.class
+        );
+
+        // 3. 验证统计数据
+        assertThat(statsResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Map<String, Object> profile = statsResponse.getBody();
+        
+        Map<String, Object> statistics = (Map<String, Object>) profile.get("statistics");
+        assertThat(statistics).isNotNull();
+        assertThat(statistics).containsKey("totalInteractions");
+        assertThat(statistics).containsKey("emotionDistribution");
+
+        System.out.println("✓ 统计数据展示测试通过");
+        System.out.println("  - 总交互次数: " + statistics.get("totalInteractions"));
+    }
+
+    @Test
+    @DisplayName("场景6: 错误处理 - 无效音频文件")
+    public void testErrorHandling_InvalidAudioFile() {
+        // 准备无效的音频文件
+        MockMultipartFile invalidFile = new MockMultipartFile(
+            "audioFile",
+            "invalid.txt",
+            "text/plain",
+            "not an audio file".getBytes()
+        );
+
+        MultiValueMap<String, Object> body = new LinkedMultipartValueMap<>();
+        body.add("audioFile", invalidFile.getResource());
+        body.add("userId", 999L);
+        body.add("sessionId", "test-error-session");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+        // 发送请求并验证错误响应
+        ResponseEntity<Map> response = restTemplate.postForEntity(
+            "/api/emotional-voice/analyze",
+            requestEntity,
+            Map.class
+        );
+
+        // 应该返回错误或降级处理
+        assertThat(response.getStatusCode()).isIn(
+            HttpStatus.BAD_REQUEST,
+            HttpStatus.OK  // 如果有降级处理
+        );
+
+        System.out.println("✓ 错误处理测试通过");
+    }
+
+    @Test
+    @DisplayName("场景7: 性能测试 - 并发请求")
+    public void testPerformance_ConcurrentRequests() throws InterruptedException {
+        // 准备测试数据
+        int concurrentUsers = 5;
+        Thread[] threads = new Thread[concurrentUsers];
+
+        long startTime = System.currentTimeMillis();
+
+        // 创建并发请求
+        for (int i = 0; i < concurrentUsers; i++) {
+            final int userId = 100 + i;
+            threads[i] = new Thread(() -> {
+                MockMultipartFile audioFile = new MockMultipartFile(
+                    "audioFile",
+                    "concurrent-test.wav",
+                    "audio/wav",
+                    "concurrent test audio".getBytes()
+                );
+
+                MultiValueMap<String, Object> body = new LinkedMultipartValueMap<>();
+                body.add("audioFile", audioFile.getResource());
+                body.add("userId", (long) userId);
+                body.add("sessionId", "concurrent-session-" + userId);
+                body.add("text", "并发测试");
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+                HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+                ResponseEntity<Map> response = restTemplate.postForEntity(
+                    "/api/emotional-voice/analyze",
+                    requestEntity,
+                    Map.class
+                );
+
+                assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            });
+            threads[i].start();
+        }
+
+        // 等待所有线程完成
+        for (Thread thread : threads) {
+            thread.join();
+        }
+
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+
+        System.out.println("✓ 并发性能测试通过");
+        System.out.println("  - 并发用户数: " + concurrentUsers);
+        System.out.println("  - 总耗时: " + duration + "ms");
+        System.out.println("  - 平均响应时间: " + (duration / concurrentUsers) + "ms");
+
+        // 验证性能要求（每个请求应在3秒内完成）
+        assertThat(duration / concurrentUsers).isLessThan(3000);
+    }
+}

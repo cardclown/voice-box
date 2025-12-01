@@ -45,6 +45,8 @@
         :messages="messages"
         :loading="loading"
         ref="messageListRef"
+        @regenerate="handleRegenerate"
+        @edit="handleEdit"
       />
 
       <InputArea
@@ -67,7 +69,10 @@ import SessionSidebar from './SessionSidebar.vue'
 import MessageList from './MessageList.vue'
 import InputArea from './InputArea.vue'
 
-const API_BASE = 'http://localhost:10088/api'
+// 使用 chatApi 替代硬编码
+import * as chatApi from '../../services/chatApi'
+
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:10088/api'
 const DEVICE_INFO = typeof navigator !== 'undefined'
   ? `${navigator.userAgent} | ${window.screen.width}x${window.screen.height}`
   : 'unknown-device'
@@ -318,6 +323,95 @@ const toggleVoiceRecording = () => {
   } else {
     chatInput.value = '语音输入转文字测试内容'
   }
+}
+
+// 处理重新生成
+const handleRegenerate = async (message) => {
+  console.log('Regenerating message:', message)
+  
+  // 找到这条消息的索引
+  const messageIndex = messages.value.findIndex(m => m === message)
+  if (messageIndex === -1) return
+  
+  // 找到对应的用户消息（前一条）
+  const userMessageIndex = messageIndex - 1
+  if (userMessageIndex < 0 || messages.value[userMessageIndex].sender !== 'user') {
+    console.error('Cannot find corresponding user message')
+    return
+  }
+  
+  const userMessage = messages.value[userMessageIndex]
+  
+  // 删除当前AI回复
+  messages.value.splice(messageIndex, 1)
+  
+  // 重新发送
+  loading.value = true
+  
+  // 创建新的AI消息占位符
+  const aiMessageIndex = messages.value.length
+  messages.value.push({ 
+    sender: 'ai', 
+    text: '',
+    isStreaming: true 
+  })
+  
+  loading.value = false
+  
+  try {
+    const { createStreamingChat, isStreamingSupported } = await import('../../services/streamService.js')
+    
+    if (isStreamingSupported()) {
+      streamController = createStreamingChat(
+        {
+          text: userMessage.text,
+          model: selectedModel.value,
+          sessionId: currentSessionId.value,
+          deviceInfo: DEVICE_INFO
+        },
+        (token) => {
+          if (token) {
+            messages.value[aiMessageIndex].text += token
+            nextTick(() => {
+              messageListRef.value?.scrollToBottom()
+            })
+          }
+        },
+        () => {
+          messages.value[aiMessageIndex].isStreaming = false
+          loading.value = false
+          streamController = null
+          messageListRef.value?.scrollToBottom()
+        },
+        (error) => {
+          console.error('Regenerate streaming error:', error)
+          messages.value[aiMessageIndex].isStreaming = false
+          messages.value[aiMessageIndex].text = '重新生成失败，请稍后重试。'
+          loading.value = false
+        }
+      )
+    } else {
+      await fallbackToNormalChat(userMessage.text, null, aiMessageIndex)
+    }
+  } catch (err) {
+    console.error('Regenerate error:', err)
+    messages.value[aiMessageIndex].isStreaming = false
+    messages.value[aiMessageIndex].text = '重新生成失败，请稍后重试。'
+    loading.value = false
+  }
+}
+
+// 处理编辑 - 将消息内容填充到输入框
+const handleEdit = (message) => {
+  console.log('Editing message:', message)
+  chatInput.value = message.text
+  // 滚动到输入框
+  nextTick(() => {
+    const inputArea = document.querySelector('.auto-resize-textarea')
+    if (inputArea) {
+      inputArea.focus()
+    }
+  })
 }
 
 onMounted(() => {

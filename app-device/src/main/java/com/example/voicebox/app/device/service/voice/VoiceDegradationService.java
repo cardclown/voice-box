@@ -48,7 +48,8 @@ public class VoiceDegradationService {
         // 1. 尝试主服务
         try {
             logger.info("尝试主服务进行TTS合成");
-            return voiceServiceProxy.textToSpeech(text, language, profile);
+            String voiceName = profile != null ? profile.getVoiceName() : "default";
+            return voiceServiceProxy.textToSpeech(text, language, voiceName);
         } catch (Exception e) {
             logger.warn("主服务TTS失败: {}", e.getMessage());
         }
@@ -96,10 +97,11 @@ public class VoiceDegradationService {
     public byte[] textToSpeechWithRetry(String text, String language, VoiceProfile profile, int maxRetries) {
         int attempt = 0;
         Exception lastException = null;
+        String voiceName = profile != null ? profile.getVoiceName() : "default";
         
         while (attempt < maxRetries) {
             try {
-                return voiceServiceProxy.textToSpeech(text, language, profile);
+                return voiceServiceProxy.textToSpeech(text, language, voiceName);
             } catch (Exception e) {
                 lastException = e;
                 attempt++;

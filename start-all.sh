@@ -2,6 +2,7 @@
 
 # VoiceBox 一键启动脚本
 # 功能：按正确顺序启动后端和前端服务
+# 用法：./start-all.sh [dev|prod]
 
 # 注意：不使用 set -e，因为我们需要手动处理错误
 
@@ -16,9 +17,36 @@ NC='\033[0m' # No Color
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
 
+# 环境参数（默认为开发环境）
+ENV=${1:-dev}
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}   VoiceBox 项目启动脚本${NC}"
+echo -e "${BLUE}   环境: ${ENV}${NC}"
 echo -e "${BLUE}========================================${NC}"
+echo ""
+
+# 根据环境选择配置文件
+if [ "$ENV" = "prod" ]; then
+    CONFIG_FILE="config-prod.properties"
+elif [ "$ENV" = "dev" ]; then
+    CONFIG_FILE="config-dev.properties"
+else
+    echo -e "${RED}❌ 错误: 未知环境 '$ENV'${NC}"
+    echo -e "${YELLOW}用法: ./start-all.sh [dev|prod]${NC}"
+    exit 1
+fi
+
+# 检查配置文件是否存在
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo -e "${RED}❌ 错误: 配置文件 $CONFIG_FILE 不存在${NC}"
+    echo -e "${YELLOW}请从模板创建配置文件:${NC}"
+    echo -e "  cp env-example.properties $CONFIG_FILE"
+    echo -e "  然后编辑 $CONFIG_FILE 填入正确的配置"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ 使用配置文件: $CONFIG_FILE${NC}"
 echo ""
 
 # 检查 Maven（优先使用指定路径的 Maven）
@@ -109,27 +137,31 @@ fi
 
 # 启动后端（后台运行）
 # 读取配置文件并设置 JVM 参数
+echo -e "${GREEN}✓ 正在加载配置文件: $CONFIG_FILE${NC}"
 CONFIG_ARGS=""
-if [ -f "config.properties" ]; then
-    echo -e "${GREEN}✓ 找到配置文件，正在加载...${NC}"
-    # 读取配置文件并转换为 JVM 参数
-    while IFS='=' read -r key value || [ -n "$key" ]; do
-        # 跳过注释和空行
-        if [[ ! "$key" =~ ^#.* ]] && [ -n "$key" ]; then
-            # 移除前后空格
-            key=$(echo "$key" | xargs)
-            value=$(echo "$value" | xargs)
-            if [ -n "$value" ]; then
-                CONFIG_ARGS="$CONFIG_ARGS -D$key=$value"
-            fi
+while IFS='=' read -r key value || [ -n "$key" ]; do
+    # 跳过注释和空行
+    if [[ ! "$key" =~ ^#.* ]] && [ -n "$key" ]; then
+        # 移除前后空格
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | xargs)
+        if [ -n "$value" ]; then
+            CONFIG_ARGS="$CONFIG_ARGS -D$key=$value"
         fi
-    done < config.properties
+    fi
+done < "$CONFIG_FILE"
+
+# 根据环境设置日志文件
+if [ "$ENV" = "prod" ]; then
+    BACKEND_LOG="backend-prod.log"
+else
+    BACKEND_LOG="backend-dev.log"
 fi
 
 # 启动后端
 nohup $MAVEN_CMD spring-boot:run -pl app-device \
   -Dspring-boot.run.main-class=com.example.voicebox.app.device.DeviceApp \
-  -Dspring-boot.run.jvmArguments="$CONFIG_ARGS" > backend.log 2>&1 &
+  -Dspring-boot.run.jvmArguments="$CONFIG_ARGS" > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 echo "$BACKEND_PID" > backend.pid
 
@@ -151,7 +183,7 @@ if [ "$BACKEND_READY" = true ]; then
     echo -e "\n${GREEN}✓ 后端服务启动成功 (http://localhost:10088)${NC}"
 else
     echo -e "\n${RED}❌ 后端启动超时${NC}"
-    echo -e "${YELLOW}请查看日志文件: backend.log${NC}"
+    echo -e "${YELLOW}请查看日志文件: $BACKEND_LOG${NC}"
     exit 1
 fi
 echo ""
@@ -167,49 +199,72 @@ if lsof -Pi :5173 -sTCP:LISTEN -t >/dev/null 2>&1 ; then
     sleep 2
 fi
 
-# 启动前端（后台运行）
-nohup npm run dev > ../frontend.log 2>&1 &
-FRONTEND_PID=$!
-echo "$FRONTEND_PID" > ../frontend.pid
-
-echo -e "${BLUE}前端 PID: $FRONTEND_PID${NC}"
-echo -e "${YELLOW}等待前端启动...${NC}"
-
-# 等待前端启动（最多等待30秒）
-FRONTEND_READY=false
-for i in {1..30}; do
-    if curl -s http://localhost:5173 > /dev/null 2>&1; then
-        FRONTEND_READY=true
-        break
-    fi
-    echo -n "."
-    sleep 1
-done
-
-if [ "$FRONTEND_READY" = true ]; then
-    echo -e "\n${GREEN}✓ 前端服务启动成功 (http://localhost:5173)${NC}"
+# 根据环境设置前端日志文件
+if [ "$ENV" = "prod" ]; then
+    FRONTEND_LOG="../frontend-prod.log"
+    # 生产环境构建前端
+    echo -e "${YELLOW}生产环境：构建前端...${NC}"
+    npm run build
+    echo -e "${GREEN}✓ 前端构建完成${NC}"
+    echo -e "${YELLOW}请使用 Nginx 或其他 Web 服务器提供静态文件${NC}"
 else
-    echo -e "\n${YELLOW}⚠️  前端启动可能需要更多时间${NC}"
-    echo -e "${YELLOW}请查看日志文件: frontend.log${NC}"
+    FRONTEND_LOG="../frontend-dev.log"
+    # 开发环境启动开发服务器
+    nohup npm run dev > "$FRONTEND_LOG" 2>&1 &
+    FRONTEND_PID=$!
+    echo "$FRONTEND_PID" > ../frontend.pid
+
+    echo -e "${BLUE}前端 PID: $FRONTEND_PID${NC}"
+    echo -e "${YELLOW}等待前端启动...${NC}"
+
+    # 等待前端启动（最多等待30秒）
+    FRONTEND_READY=false
+    for i in {1..30}; do
+        if curl -s http://localhost:5173 > /dev/null 2>&1; then
+            FRONTEND_READY=true
+            break
+        fi
+        echo -n "."
+        sleep 1
+    done
+
+    if [ "$FRONTEND_READY" = true ]; then
+        echo -e "\n${GREEN}✓ 前端服务启动成功 (http://localhost:5173)${NC}"
+    else
+        echo -e "\n${YELLOW}⚠️  前端启动可能需要更多时间${NC}"
+        echo -e "${YELLOW}请查看日志文件: $FRONTEND_LOG${NC}"
+    fi
 fi
 echo ""
 
 # ==================== 启动完成 ====================
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}   🎉 所有服务启动完成！${NC}"
+echo -e "${GREEN}   环境: ${ENV}${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${BLUE}服务地址:${NC}"
-echo -e "  • 前端: ${GREEN}http://localhost:5173${NC}"
+if [ "$ENV" = "prod" ]; then
+    echo -e "  • 前端: ${YELLOW}请配置 Nginx 或其他 Web 服务器${NC}"
+else
+    echo -e "  • 前端: ${GREEN}http://localhost:5173${NC}"
+fi
 echo -e "  • 后端: ${GREEN}http://localhost:10088${NC}"
 echo ""
 echo -e "${BLUE}进程信息:${NC}"
 echo -e "  • 后端 PID: ${YELLOW}$BACKEND_PID${NC}"
-echo -e "  • 前端 PID: ${YELLOW}$FRONTEND_PID${NC}"
+if [ "$ENV" = "dev" ] && [ -n "$FRONTEND_PID" ]; then
+    echo -e "  • 前端 PID: ${YELLOW}$FRONTEND_PID${NC}"
+fi
+echo ""
+echo -e "${BLUE}配置文件:${NC}"
+echo -e "  • ${YELLOW}$CONFIG_FILE${NC}"
 echo ""
 echo -e "${BLUE}日志文件:${NC}"
-echo -e "  • 后端: ${YELLOW}backend.log${NC}"
-echo -e "  • 前端: ${YELLOW}frontend.log${NC}"
+echo -e "  • 后端: ${YELLOW}$BACKEND_LOG${NC}"
+if [ "$ENV" = "dev" ]; then
+    echo -e "  • 前端: ${YELLOW}$FRONTEND_LOG${NC}"
+fi
 echo ""
 echo -e "${BLUE}停止服务:${NC}"
 echo -e "  运行: ${YELLOW}./stop-all.sh${NC}"

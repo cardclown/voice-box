@@ -15,11 +15,10 @@ import java.nio.charset.StandardCharsets;
  * @since 1.5
  */
 @Service
-public class MockVoiceServiceProxy implements VoiceServiceProxy {
+public class MockVoiceServiceProxy {
     
     private static final Logger logger = LoggerFactory.getLogger(MockVoiceServiceProxy.class);
     
-    @Override
     public String speechToText(InputStream audioStream, String language) throws Exception {
         logger.info("模拟STT服务 - 语言: {}", language);
         
@@ -30,7 +29,6 @@ public class MockVoiceServiceProxy implements VoiceServiceProxy {
         return "这是模拟的语音识别结果，实际应该调用真实的STT服务";
     }
     
-    @Override
     public byte[] textToSpeech(String text, String language, VoiceProfile voiceProfile) throws Exception {
         logger.info("模拟TTS服务 - 文本长度: {}, 语言: {}, 音色: {}", 
             text.length(), language, voiceProfile.getVoiceName());
@@ -43,7 +41,6 @@ public class MockVoiceServiceProxy implements VoiceServiceProxy {
         return mockAudio.getBytes(StandardCharsets.UTF_8);
     }
     
-    @Override
     public boolean checkHealth() {
         logger.debug("检查语音服务健康状态");
         return true;

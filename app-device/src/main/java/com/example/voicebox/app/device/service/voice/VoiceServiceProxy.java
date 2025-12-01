@@ -12,15 +12,21 @@ import java.util.concurrent.CompletableFuture;
  * 语音服务代理
  * 负责服务降级和自动切换
  */
-@Slf4j
 @Service
 public class VoiceServiceProxy {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(VoiceServiceProxy.class);
 
     @Autowired
     private DoubaoVoiceService doubaoVoiceService;
+    
+    @Autowired(required = false)
+    private MockVoiceService mockVoiceService;
 
     @Value("${voicebox.voice.primary.provider:doubao}")
     private String primaryProvider;
+    
+    @Value("${voicebox.voice.use.mock:false}")
+    private boolean useMock;
 
     @Value("${voicebox.voice.max.retries:3}")
     private int maxRetries;
@@ -29,14 +35,20 @@ public class VoiceServiceProxy {
      * 语音识别 (带重试和降级)
      */
     public String speechToText(InputStream audioStream, String language) throws Exception {
-        log.info("调用语音识别服务 - provider: {}, language: {}", primaryProvider, language);
+        log.info("调用语音识别服务 - provider: {}, language: {}, useMock: {}", primaryProvider, language, useMock);
+        
+        // 如果配置使用Mock服务
+        if (useMock && mockVoiceService != null) {
+            log.info("使用Mock语音识别服务");
+            return mockVoiceService.speechToText(audioStream, language).get();
+        }
         
         int attempt = 0;
         Exception lastException = null;
         
         while (attempt < maxRetries) {
             try {
-                // 目前只支持豆包，后续可扩展其他服务商
+                // 尝试使用豆包服务
                 CompletableFuture<String> future = doubaoVoiceService.speechToText(audioStream, language);
                 String result = future.get();
                 
@@ -57,22 +69,30 @@ public class VoiceServiceProxy {
             }
         }
         
-        throw new VoiceServiceException("语音识别失败", lastException);
+        // 不再自动降级,直接抛出异常
+        log.error("豆包语音识别服务失败，已重试{}次", maxRetries, lastException);
+        throw new VoiceServiceException("豆包语音识别服务失败: " + lastException.getMessage(), lastException);
     }
 
     /**
      * 语音合成 (带重试和降级)
      */
     public byte[] textToSpeech(String text, String language, String voiceName) throws Exception {
-        log.info("调用语音合成服务 - provider: {}, text: {}, language: {}, voice: {}", 
-                primaryProvider, text, language, voiceName);
+        log.info("调用语音合成服务 - provider: {}, text: {}, language: {}, voice: {}, useMock: {}", 
+                primaryProvider, text, language, voiceName, useMock);
+        
+        // 如果配置使用Mock服务
+        if (useMock && mockVoiceService != null) {
+            log.info("使用Mock语音合成服务");
+            return mockVoiceService.textToSpeech(text, language, voiceName).get();
+        }
         
         int attempt = 0;
         Exception lastException = null;
         
         while (attempt < maxRetries) {
             try {
-                // 目前只支持豆包，后续可扩展其他服务商
+                // 尝试使用豆包服务
                 CompletableFuture<byte[]> future = doubaoVoiceService.textToSpeech(text, language, voiceName);
                 byte[] result = future.get();
                 
@@ -93,18 +113,24 @@ public class VoiceServiceProxy {
             }
         }
         
-        throw new VoiceServiceException("语音合成失败", lastException);
+        // 不再自动降级,直接抛出异常
+        log.error("豆包语音合成服务失败，已重试{}次", maxRetries, lastException);
+        throw new VoiceServiceException("豆包语音合成服务失败: " + lastException.getMessage(), lastException);
     }
 
     /**
      * 流式语音合成
+     * TODO: 实现真正的流式合成，目前使用普通合成
      */
     public void streamTextToSpeech(String text, String language, String voiceName, 
                                    DoubaoVoiceService.AudioDataCallback callback) {
         log.info("调用流式语音合成服务 - provider: {}, text: {}", primaryProvider, text);
         
         try {
-            doubaoVoiceService.streamTextToSpeech(text, language, voiceName, callback);
+            // 暂时使用普通TTS，未来实现真正的流式合成
+            CompletableFuture<byte[]> future = doubaoVoiceService.textToSpeech(text, language, voiceName);
+            byte[] audioData = future.get();
+            callback.onAudioData(audioData, true);  // isLast=true表示这是最后一块数据
         } catch (Exception e) {
             log.error("流式语音合成失败", e);
             callback.onError(e);

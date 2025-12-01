@@ -45,7 +45,12 @@
       </div>
     </div>
     <div class="session-empty" v-else>
-      <p v-if="sessionsLoading">加载中...</p>
+      <LoadingState 
+        v-if="sessionsLoading" 
+        type="skeleton" 
+        skeleton-type="list-item"
+        :skeleton-count="5"
+      />
       <p v-else-if="searchQuery || filterModel || filterDate">未找到匹配的会话</p>
       <p v-else>暂无会话，点击上方按钮新建</p>
     </div>
@@ -54,6 +59,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import LoadingState from '../common/LoadingState.vue'
 
 const MODEL_OPTIONS = [
   { key: 'doubao', name: '豆包 Doubao', desc: '火山引擎 · 豆包模型' },

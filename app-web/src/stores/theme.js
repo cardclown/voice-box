@@ -34,12 +34,19 @@ export const useThemeStore = defineStore('theme', () => {
    * @param {string} theme - 主题名称
    */
   function applyTheme(theme) {
+    // 检查 document 是否可用（测试环境兼容）
+    if (typeof document === 'undefined' || !document.documentElement) {
+      return
+    }
+    
     // 设置 data-theme 属性
     document.documentElement.setAttribute('data-theme', theme)
     
     // 设置 class（备用方案）
-    document.documentElement.classList.remove('light', 'dark')
-    document.documentElement.classList.add(theme)
+    if (document.documentElement.classList) {
+      document.documentElement.classList.remove('light', 'dark')
+      document.documentElement.classList.add(theme)
+    }
     
     // 更新 meta theme-color（移动端浏览器地址栏颜色）
     updateMetaThemeColor(theme)
@@ -50,12 +57,17 @@ export const useThemeStore = defineStore('theme', () => {
    * @param {string} theme - 主题名称
    */
   function updateMetaThemeColor(theme) {
+    // 检查 document 是否可用（测试环境兼容）
+    if (typeof document === 'undefined' || !document.querySelector) {
+      return
+    }
+    
     const metaThemeColor = document.querySelector('meta[name="theme-color"]')
     const color = theme === 'dark' ? '#1a1a1a' : '#f9fafb'
     
     if (metaThemeColor) {
       metaThemeColor.setAttribute('content', color)
-    } else {
+    } else if (document.head && document.createElement) {
       const meta = document.createElement('meta')
       meta.name = 'theme-color'
       meta.content = color

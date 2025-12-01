@@ -22,7 +22,7 @@ public final class DatabaseConfig {
     }
 
     public static String host() {
-        return resolve("voicebox.db.host", "VOICEBOX_DB_HOST", "localhost");
+        return resolve("voicebox.db.host", "VOICEBOX_DB_HOST", "129.211.180.183");
     }
 
     public static String port() {
@@ -34,11 +34,11 @@ public final class DatabaseConfig {
     }
 
     public static String user() {
-        return resolve("voicebox.db.user", "VOICEBOX_DB_USER", "root");
+        return resolve("voicebox.db.user", "VOICEBOX_DB_USER", "voicebox");
     }
 
     public static String password() {
-        return resolve("voicebox.db.password", "VOICEBOX_DB_PASSWORD", "root");
+        return resolve("voicebox.db.password", "VOICEBOX_DB_PASSWORD", "voicebox123");
     }
 
     public static String jdbcUrl() {
